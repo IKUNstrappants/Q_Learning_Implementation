@@ -1,7 +1,6 @@
 import gymnasium as gym
-from gym_examples_main.gym_examples.envs import GridWorldEnv, AnimalEnv
+from gym_examples_main.gym_examples.envs import AnimalEnv
 from ideas import PreyAI, PredatorAI
-from outer_environment import field
 import math
 import random
 import matplotlib.pyplot as plt

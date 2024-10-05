@@ -1,5 +1,5 @@
 import gymnasium as gym
-from gym_examples_main.gym_examples.envs import GridWorldEnv, AnimalEnv
+from gym_examples_main.gym_examples.envs import AnimalEnv
 from ideas import PreyAI, PredatorAI
 from outer_environment import grassland
 import math
@@ -136,7 +136,6 @@ def plot_durations(show_result=False):
         else:
             display.display(plt.gcf())
     '''
-
 
 
 def optimize_model():
