@@ -37,10 +37,11 @@ class grassland():
         if entity.view_cache is not None:
             for i in range(len(entity.ray[0])):
                 angle  = entity.ray[0][i]
-                length = 1. / entity.ray[1][i]
+                length = entity.ray[1][i]
                 direction = rotateVector(entity.forward, angle)
                 # print(entity.view_cache[i, :])
                 type, distance = tuple(entity.view_cache[i, :])
+                distance = 1.0 / distance
                 ray_color = color_code[type.item()]
                 pygame.draw.line(
                     canvas,
