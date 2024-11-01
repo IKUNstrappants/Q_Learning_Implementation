@@ -1,7 +1,9 @@
 import random
 from ideas import *
 from utilities import *
-from gym_examples_main.gym_examples.envs import AnimalEnv
+from gym_examples_main.gym_examples.envs import AnimalEnv, BridgeEnv
+from shapely.geometry import Point, Polygon, LineString
+from shapely.ops import nearest_points
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -173,4 +175,66 @@ class barrier(animal):
                          ray=[])
         self.size = 3.
         self.type = 3.
+
+class walker():
+    def __init__(self, bridge, AI=IdleAI, id=0,
+                 ray=None,
+                 location=torch.zeros(2),
+                 forward=torch.tensor([1., 0.], dtype=torch.double),
+                 possess=False):
+        self.location = location.double()
+        self.forward = forward.double()
+        self.brain = Brain(AI=AI)
+        self.turn = 0
+        self.move = 0
+        self.ray = ray
+        self.bridge = bridge
+        self.size = 0
+        self.type = 0
+        self.id = id
+        self.score = 0
+        self.possessed = possess
+        self.lifetime = 0
+        self.alive = True
+        self.perception = BridgeEnv(agent=self)
+        self.view_cache = None
+        self._reset_upon_death = False
+
+    def reset(self):
+        pass
+
+    def tp(self, location):
+        self.location = location
+        self.forward = torch.tensor([1, 0])
+
+    def vision(self, angle, length):
+        ray_direction = rotateVector(self.forward, angle)
+        ray_start = Point(self.location)
+        ray = LineString([ray_start, ray_direction])
+
+        # Find the nearest point on the polygon to the ray
+        nearest_point = nearest_points(ray, self.perception.surface.exterior)[1]
+
+        # Calculate the distance from the ray start to the nearest point on the polygon
+        distance = min(ray_start.distance(nearest_point), length)
+
+        return torch.tensor([1.0 / distance]).to(device)
+
+    def view(self):
+        view_cache = []
+        for index in range(len(self.ray[0])):
+            view_cache.append(self.vision(self.ray[0][index], self.ray[1][index]))
+        self.view_cache = torch.cat(view_cache)
+        return self.view_cache
+
+    def walk(self, action):
+        # print("begin walk")
+        self.score -= self.perception._action_to_penalty[action]
+        movement = self.perception._action_to_direction[action]
+        move = movement[0]
+        turn = movement[1]
+        self.forward = rotateVector(self.forward, turn)
+        self.location = min(max(self.location + self.forward * move, 0), self.perception.bridge_length)
+
+
 

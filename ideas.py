@@ -28,7 +28,7 @@ class visionNeuron(nn.Module):
         return x
 
 class IdleAI:
-    def __init__(self):
+    def __init__(self, *args):
         pass
     def forward(self):
         return torch.tensor([1, 0, 0, 0])

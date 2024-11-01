@@ -1,5 +1,5 @@
 from ideas import PreyAI, PredatorAI
-from outer_environment import grassland
+from animal_scene import grassland
 import math
 import random
 import matplotlib.pyplot as plt

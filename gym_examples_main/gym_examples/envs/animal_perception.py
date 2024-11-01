@@ -1,11 +1,11 @@
 import gymnasium as gym
-import numpy
 from gymnasium import spaces
 import numpy as np
 
 
 class AnimalEnv(gym.Env):
     def __init__(self, animal=None):
+        super().__init__()
         self.animal = animal
 
         # Observations are dictionaries with the agent's and the target's location.
@@ -21,10 +21,10 @@ class AnimalEnv(gym.Env):
         I.e. 0 corresponds to "right", 1 to "up" etc.
         """
         self._action_to_direction = {
-            0: np.array([0.0, 0.0], dtype=numpy.double),
-            1: np.array([0.1, 1.0], dtype=numpy.double),
-            2: np.array([0.1,-1.0], dtype=numpy.double),
-            3: np.array([1.0, 0.0], dtype=numpy.double),
+            0: np.array([0.0, 0.0], dtype=np.double),
+            1: np.array([0.1, 1.0], dtype=np.double),
+            2: np.array([0.1,-1.0], dtype=np.double),
+            3: np.array([1.0, 0.0], dtype=np.double),
         }
         self._action_to_penalty = {
             0: 0.0,
