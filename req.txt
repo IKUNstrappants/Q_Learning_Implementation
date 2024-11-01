@@ -28,6 +28,7 @@ pyparsing=3.1.4=pypi_0
 python=3.11.9=he1021f5_0
 python-dateutil=2.9.0.post0=pypi_0
 setuptools=72.1.0=py311haa95532_0
+shapely=2.0.6=pypi_0
 six=1.16.0=pypi_0
 sqlite=3.45.3=h2bbff1b_0
 sympy=1.12=pypi_0
