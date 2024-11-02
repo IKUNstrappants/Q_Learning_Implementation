@@ -7,7 +7,7 @@ import random
 import matplotlib.pyplot as plt
 from collections import namedtuple, deque
 from itertools import count
-
+from som_action import *
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -193,6 +193,10 @@ if torch.cuda.is_available() or torch.backends.mps.is_available():
 else:
     num_episodes = 50
 
+flag = 1 # implement som or not
+if flag:
+    som = SOM(weight_dim=2, width=2, height=2,learning_rate=0.5,lamda=0.5,epsilon=0.5,decay_factor=0.99)
+
 for i_episode in range(num_episodes):
     # Initialize the environment and get its state
     environment.reset()
@@ -205,15 +209,31 @@ for i_episode in range(num_episodes):
         done = False
         if t >= max_iter: done=True
         action = select_action(state)
-        observation, reward, terminated, truncated, _ = hunter.perception.step(action.item())
+        #print("action is \n",action)
+        if flag:
+            continuous_action = som.perturbed_action(action.item()) # step 3 and 4 in the paper
+            observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(continuous_action)
+        else:
+            observation, reward, terminated, truncated, _ = hunter.perception.step(action.item())
+        
         reward = torch.tensor([reward], device=device)
         done = terminated or truncated or done
 
+        if flag:
+            current_state_action_value = policy_net(state).gather(1,action)
+        
         if terminated:
             next_state = None
         else:
             next_state = torch.tensor(observation, dtype=torch.float32, device=device).unsqueeze(0)
-
+            if flag:
+                next_state_value = target_net(next_state).max(1).values
+                # Compute the expected Q values
+                expected_state_action_value = (next_state_value * GAMMA) + reward
+                
+                if expected_state_action_value > current_state_action_value:
+                    som.update_weights(continuous_action,t)
+                
         # Store the transition in memory
         memory.push(state, action, next_state, reward)
 

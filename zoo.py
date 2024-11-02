@@ -96,7 +96,22 @@ class animal():
             self.location = (self.location + self.forward * move + size) % (size*2) - size
         else:
             self.cheatWalk()
-
+    
+    #new add
+    def continuous_walk(self, action):
+        size = self.field.size
+        # print("begin walk")
+        
+        #penalty ??
+        # self.score -= self.perception._action_to_penalty[action]
+        
+        if not self.possessed:
+            move = action[0]
+            turn = action[1]
+            self.forward = rotateVector(self.forward, turn)
+            self.location = (self.location + self.forward * move + size) % (size*2) - size
+        else:
+            self.cheatWalk()
 
     def die(self):
         self.alive = False

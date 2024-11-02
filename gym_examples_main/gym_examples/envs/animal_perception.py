@@ -69,3 +69,20 @@ class AnimalEnv(gym.Env):
         info = self._get_info()
 
         return observation, reward, terminated, False, info
+    
+    def continuous_step(self,action):
+        self.animal.continuous_walk(action)
+        
+        #penalty??
+        reward = -self._action_to_penalty[1]
+        if self.animal.type == 1:
+            reward += self.animal.hunt()
+        elif self.animal.type == 2:
+            reward += 0.002
+        # An episode is done iff the agent has reached the target
+        terminated = not self.animal.alive
+        # reward = 1 if terminated else 0  # Binary sparse rewards
+        observation = self._get_obs()
+        info = self._get_info()
+
+        return observation, reward, terminated, False, info
