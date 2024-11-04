@@ -1,14 +1,18 @@
 import numpy as np
-
+import random
 class SOM():
     def __init__(self,  weight_dim, width, height,learning_rate,lamda,epsilon,decay_factor=0.99):
         self.weight_dim = weight_dim
         self.width = width
-        self.grid = np.random.rand(height, width, weight_dim)
+        #self.grid = np.random.rand(height, width, weight_dim)
         self.lr = learning_rate
         self.lamda = lamda
         self.epsilon = epsilon
         self.decay_factor = decay_factor
+        
+        direction = [-15,-5,0,5,15]
+        self.grid = np.array([[[random.uniform(0,20),direction[i]] for i in range(width)] for _ in range(height)])
+        #print("shape of grid is ",self.grid.shape)
         
     def choose_proposed_action(self,unit):
         col = unit % self.width 

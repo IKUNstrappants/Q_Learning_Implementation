@@ -195,7 +195,7 @@ else:
 
 flag = 1 # implement som or not
 if flag:
-    som = SOM(weight_dim=2, width=2, height=2,learning_rate=0.5,lamda=0.5,epsilon=0.5,decay_factor=0.99)
+    som = SOM(weight_dim=2, width=5, height=5,learning_rate=0.5,lamda=0.5,epsilon=0.5,decay_factor=0.99)
 
 for i_episode in range(num_episodes):
     # Initialize the environment and get its state
@@ -209,10 +209,10 @@ for i_episode in range(num_episodes):
         done = False
         if t >= max_iter: done=True
         action = select_action(state)
-        #print("action is \n",action)
+        # print("action is \n",action)
         if flag:
             continuous_action = som.perturbed_action(action.item()) # step 3 and 4 in the paper
-            observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(continuous_action)
+            observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(continuous_action) # use continuous action to obtain the reward
         else:
             observation, reward, terminated, truncated, _ = hunter.perception.step(action.item())
         

@@ -13,7 +13,7 @@ class AnimalEnv(gym.Env):
         self.observation_space = spaces.Discrete(1)
 
         # We have 4 actions, corresponding to "stay", "right", "forward", "left"
-        self.action_space = spaces.Discrete(4)
+        self.action_space = spaces.Discrete(25)
 
         """
         The following dictionary maps abstract actions from `self.action_space` to 
@@ -73,8 +73,7 @@ class AnimalEnv(gym.Env):
     def continuous_step(self,action):
         self.animal.continuous_walk(action)
         
-        #penalty??
-        reward = -self._action_to_penalty[1]
+        reward = 0
         if self.animal.type == 1:
             reward += self.animal.hunt()
         elif self.animal.type == 2:
