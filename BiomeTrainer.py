@@ -20,7 +20,7 @@ plt.ion()
 # if GPU is to be used
 device = torch.device(
     "cuda" if torch.cuda.is_available() else
-    "mps" if torch.backends.mps.is_available() else
+    #"mps" if torch.backends.mps.is_available() else
     "cpu"
 )
 
@@ -121,11 +121,13 @@ def plot_durations(show_result=False):
     plt.xlabel('Episode')
     plt.ylabel('Duration')
     plt.plot(score.numpy())
-    # Take 100 episode averages and plot them too
-    if len(score) >= 100:
-        means = score.unfold(0, 100, 1).mean(1).view(-1)
-        means = torch.cat((torch.zeros(99), means))
+    # Take 50 episode averages and plot them too
+    if len(score) >= 50:
+        means = score.unfold(0, 50, 1).mean(1).view(-1)
+        means = torch.cat((torch.zeros(49), means))
         plt.plot(means.numpy())
+    
+    
 
     plt.pause(0.001)  # pause a bit so that plots are updated
     '''
@@ -137,6 +139,10 @@ def plot_durations(show_result=False):
             display.display(plt.gcf())
     '''
 
+def plot_som(som):
+    scatter = som.grid.reshape(-1, 2)
+    plt.scatter(scatter[:, 0], scatter[:, 1])
+    plt.show()
 
 
 def optimize_model():
@@ -195,7 +201,7 @@ else:
 
 flag = 1 # implement som or not
 if flag:
-    som = SOM(weight_dim=2, width=5, height=5,learning_rate=0.5,lamda=0.5,epsilon=0.5,decay_factor=0.99)
+    som = SOM(weight_dim=2, width=5, height=5,learning_rate=0.03,lamda=0.5,epsilon=1,decay_factor=0.99)
 
 for i_episode in range(num_episodes):
     # Initialize the environment and get its state
@@ -212,6 +218,7 @@ for i_episode in range(num_episodes):
         # print("action is \n",action)
         if flag:
             continuous_action = som.perturbed_action(action.item()) # step 3 and 4 in the paper
+            print("action is ",continuous_action)
             observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(continuous_action) # use continuous action to obtain the reward
         else:
             observation, reward, terminated, truncated, _ = hunter.perception.step(action.item())
@@ -255,6 +262,7 @@ for i_episode in range(num_episodes):
             episode_durations.append(t + 1)
             score_cache.append(hunter.score)
             plot_durations()
+            plot_som(som)
             # if i_episode % 10 == 0:
             environment.close()
             print(f"{i_episode}th episode: {t} iterations, end up with {hunter.score} reward")

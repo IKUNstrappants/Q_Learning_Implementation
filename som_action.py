@@ -11,7 +11,7 @@ class SOM():
         self.decay_factor = decay_factor
         
         direction = [-15,-5,0,5,15]
-        self.grid = np.array([[[random.uniform(0,20),direction[i]] for i in range(width)] for _ in range(height)])
+        self.grid = np.array([[[random.uniform(0,5),direction[i]] for i in range(width)] for _ in range(height)])
         #print("shape of grid is ",self.grid.shape)
         
     def choose_proposed_action(self,unit):

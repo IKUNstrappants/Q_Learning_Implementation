@@ -1,5 +1,9 @@
 import random
+
+from torch._C import double
+from torch._C._VariableFunctions import tensor, zeros
 from ideas import *
+from ideas import IdleAI
 from utilities import *
 from gym_examples_main.gym_examples.envs import AnimalEnv, BridgeEnv
 from shapely.geometry import Point, Polygon, LineString
@@ -158,6 +162,9 @@ class hunter(animal):
         self.score += kills
         return kills
 
+class predator(animal):
+    def __init__(self, field, AI=IdleAI, id=0, ray=None, psossess=True):
+        super().__init__(field, AI, id, ray=[])
 
 class prey(animal):
     def __init__(self, field, AI=PreyAI, id=0):
