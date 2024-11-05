@@ -1,11 +1,9 @@
 import random
-
-import numpy as np
-
 from ideas import *
+from ideas import IdleAI
 from utilities import *
 from gym_examples_main.gym_examples.envs import AnimalEnv, BridgeEnv
-from shapely.geometry import Point, Polygon, LineString
+from shapely.geometry import Point, LineString
 from shapely.ops import nearest_points
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -46,20 +44,23 @@ class animal():
         targets = []
         if self.type == 4:
             targets = list(self.field.hunters.values())
+        elif self.type == 1:
+            targets = list(self.field.preys.values())
+        elif self.type == 2:
+            return
         distance = 40.0
         closest_ = targets[0]
         for target in targets:
             if target == self or target.alive==False:
                 pass
-            target_to_self = self.location - target.location
-            dist = vectorDistance(target_to_self, 0)
+            dist = vectorDistance(self.location, target.location)
             if self.type == 1 or self.type == 4:
                 if dist <= distance:
                     distance = dist
                     closest_ = target
-        if distance < 40.:
+        if distance < 30.:
             dist_vec = self.location - closest_.location
-            self.location += dist_vec / vectorDistance(dist_vec, 0) * (-1 if (self.type==1 or self.type==4) else -1)
+            self.location += (dist_vec / vectorDistance(self.location, closest_.location) * (-2 if (self.type==1 or self.type==4) else 1)).flatten()
 
     def vision(self, angle, length, targets):
         # print("get vision")
@@ -125,16 +126,15 @@ class animal():
 class hunter(animal):
     def __init__(self, field, AI=PredatorAI, id=0):
         super().__init__(field, AI, id=id,
-                         ray=[[-30, -15, -5,  0,  5, 15, 30],
-                              [ 10,  15, 20, 20, 20, 15, 10]],
+                         ray=[[-150, -30, -15, -5,  0,  5, 15, 30, 150, 180],
+                              [  15,  10,  15, 20, 20, 20, 15, 10,  15,  20]],
                          possess=False)
         self.size = 4.
         self.type = 1
         self._reset_upon_death = False
 
-    def walk(self, movement, action):
+    def walk(self, movement=None, action=None):
         super().walk(movement, action)
-        self.score -= 0.00
 
     def reset(self):
         size = self.field.size
@@ -162,8 +162,8 @@ class hunter(animal):
         return kills
 
 class omega_predator(animal):
-    def __init__(self, field):
-        super().__init__(field=field, possess=True)
+    def __init__(self, field, id):
+        super().__init__(field=field, possess=True, id=id)
         self.type = 4
 
     def reset(self):
@@ -192,8 +192,8 @@ class prey(animal):
         self.score = 0
         self.alive = True
 
-    def walk(self, movement, action):
-        super().walk(movement, action)
+    def walk(self, movement=None, action=None):
+        super().walk()
         self.score += 0.02
 
 class barrier(animal):

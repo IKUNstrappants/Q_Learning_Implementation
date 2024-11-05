@@ -1,7 +1,7 @@
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
-
+from utilities import *
 
 class AnimalEnv(gym.Env):
     def __init__(self, animal=None):
@@ -13,7 +13,7 @@ class AnimalEnv(gym.Env):
         self.observation_space = spaces.Discrete(1)
 
         # We have 4 actions, corresponding to "stay", "right", "forward", "left"
-        self.action_space = spaces.Discrete(4)
+        self.action_space = spaces.Discrete(25)
 
         """
         The following dictionary maps abstract actions from `self.action_space` to 
@@ -74,9 +74,14 @@ class AnimalEnv(gym.Env):
     
     def continuous_step(self,action):
         self.animal.continuous_walk(action)
-        
-        #penalty??
-        reward = -self._action_to_penalty[1]
+
+        distance = 100.
+        for entity in self.animal.field.OmegaPredators.values():
+            dist_current = vectorDistance(self.animal.location, entity.location)
+            distance = min(dist_current, distance)
+        danger = 1 / distance if distance < 20 else 0
+
+        reward = -0.01 * abs(action[0]) - abs(0.001 * action[1]) - danger
         if self.animal.type == 1:
             reward += self.animal.hunt()
         elif self.animal.type == 2:

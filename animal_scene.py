@@ -11,13 +11,13 @@ class grassland():
         self.window = None
         self.render_mode = "human"
         self.clock = None
-        self.window_size = 512  # The size of the PyGame window
+        self.window_size = 1024  # The size of the PyGame window
         for i in range(num_hunter):
             self.hunters[i] = hunter(field=self, id=i)
         for i in range(num_prey):
             self.preys[i+num_hunter+10] = prey(field=self, id=i+num_hunter+10)
         for i in range(num_OmegaPredator):
-            self.OmegaPredators[i+num_hunter+10+num_prey+10] = omega_predator
+            self.OmegaPredators[i+num_hunter+10+num_prey+10] = omega_predator(field=self, id=i+num_hunter+10+num_prey+10)
 
     def _get_all_entities(self):
         return list(self.hunters.values()) + list(self.preys.values()) + list(self.OmegaPredators.values())
@@ -41,6 +41,7 @@ class grassland():
             0: np.array([0, 0, 0]),     # barrier
             1: np.array([255, 0, 0]),   # predator
             2: np.array([0, 255, 0]),   # prey
+            4: np.array([255, 255, 0]),   # omega_predator
         }
         # color = color_code[entity.type * 10 + (1 if entity.alive else 0)]
         pygame.draw.circle(surface=canvas, color=color_code[entity.type], center=screen_position, radius=7, width=0 if entity.alive else 4)
@@ -57,7 +58,7 @@ class grassland():
                     canvas,
                     color_code[entity.type] * 0.5,
                     screen_position,
-                    pix_square_size * ((entity.location + direction * length * 2).numpy() + self.size) / 2,
+                    pix_square_size * ((entity.location + direction * length).numpy() + self.size) / 2,
                     width=3,
                 )
                 if type != 0:
@@ -65,13 +66,12 @@ class grassland():
                         canvas,
                         ray_color,
                         screen_position,
-                        pix_square_size * ((entity.location + direction * distance.item() * 2).numpy() + self.size) / 2,
+                        pix_square_size * ((entity.location + direction * distance.item()).numpy() + self.size) / 2,
                         width=3,
                     )
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
-            pygame.init()
             pygame.display.init()
             self.window = pygame.display.set_mode((self.window_size, self.window_size))
         if self.clock is None and self.render_mode == "human":
@@ -101,5 +101,4 @@ class grassland():
     def close(self):
         if self.window is not None:
             pygame.display.quit()
-            pygame.quit()
             self.window = None

@@ -36,7 +36,7 @@ class IdleAI:
 class PredatorAI(nn.Module):
     def __init__(self, action_space):
         super().__init__()
-        self.fcl1 = nn.Linear(14, 128)
+        self.fcl1 = nn.Linear(20, 128)
         self.fcl2 = nn.Linear(128, 64)
         self.fcl3 = nn.Linear(64, action_space)
 
