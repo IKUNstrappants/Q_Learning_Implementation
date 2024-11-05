@@ -1,4 +1,7 @@
 import random
+
+from torch._C import double
+from torch._C._VariableFunctions import tensor, zeros
 from ideas import *
 from ideas import IdleAI
 from utilities import *
@@ -169,7 +172,6 @@ class omega_predator(animal):
     def reset(self):
         size = self.field.size
         self.location = torch.rand(2, dtype=torch.double)*size*2 - size
-
 
 class prey(animal):
     def __init__(self, field, AI=PreyAI, id=0):

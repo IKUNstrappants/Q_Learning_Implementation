@@ -124,6 +124,8 @@ def plot_durations(show_result=False):
         means = score.unfold(0, 50, 1).mean(1).view(-1)
         means = torch.cat((torch.zeros(49), means))
         plt.plot(means.numpy())
+    
+    
 
     plt.pause(0.001)  # pause a bit so that plots are updated
     '''
@@ -263,6 +265,7 @@ for i_episode in range(num_episodes):
             episode_durations.append(t + 1)
             score_cache.append(hunter.score)
             plot_durations()
+            plot_som(som)
             # if i_episode % 10 == 0:
             environment.close()
             print(f"{i_episode}th episode: {t} iterations, end up with {hunter.score} reward")
