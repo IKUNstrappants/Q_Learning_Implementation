@@ -79,11 +79,9 @@ class AnimalEnv(gym.Env):
         for entity in self.animal.field.OmegaPredators.values():
             dist_current = vectorDistance(self.animal.location, entity.location)
             distance = min(dist_current, distance)
-        danger = 1 / distance if distance < 20 else 0
+        danger = 0.1 / distance if distance < 10 else 0
 
         reward = -0.01 * abs(action[0]) - abs(0.001 * action[1]) - danger
-
-        reward = -0.01 * abs(action[0]) - abs(0.001 * action[1])
         if self.animal.type == 1:
             reward += self.animal.hunt()
         elif self.animal.type == 2:

@@ -1,7 +1,4 @@
 import random
-
-from torch._C import double
-from torch._C._VariableFunctions import tensor, zeros
 from ideas import *
 from ideas import IdleAI
 from utilities import *
@@ -63,7 +60,7 @@ class animal():
                     closest_ = target
         if distance < 30.:
             dist_vec = self.location - closest_.location
-            self.location += (dist_vec / vectorDistance(self.location, closest_.location) * (-2 if (self.type==1 or self.type==4) else 1)).flatten()
+            self.location += (dist_vec / vectorDistance(self.location, closest_.location) * (-1 if (self.type==1 or self.type==4) else 1)).flatten()
 
     def vision(self, angle, length, targets):
         # print("get vision")
