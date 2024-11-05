@@ -53,6 +53,7 @@ class AnimalEnv(gym.Env):
         return observation, info
 
     def step(self, action):
+
         # Map the action (element of {0,1,2,3}) to the direction we walk in
         movement = self._action_to_direction[action]
         # We use `np.clip` to make sure we don't leave the grid
@@ -67,6 +68,7 @@ class AnimalEnv(gym.Env):
         # reward = 1 if terminated else 0  # Binary sparse rewards
         observation = self._get_obs()
         info = self._get_info()
+        # before main agent moves, let predator move first
 
         return observation, reward, terminated, False, info
     

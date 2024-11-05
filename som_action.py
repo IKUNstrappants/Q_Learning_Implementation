@@ -1,10 +1,10 @@
 import numpy as np
 
 class SOM():
-    def __init__(self,  weight_dim, width, height,learning_rate,lamda,epsilon,decay_factor=0.99):
+    def __init__(self,  weight_dim, width, height, learning_rate, lamda, epsilon, decay_factor=0.99):
         self.weight_dim = weight_dim
         self.width = width
-        self.grid = np.random.rand(height, width, weight_dim)
+        self.grid = (np.random.rand(height, width, weight_dim) - 0.5)
         self.lr = learning_rate
         self.lamda = lamda
         self.epsilon = epsilon

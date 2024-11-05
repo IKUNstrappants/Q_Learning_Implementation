@@ -13,7 +13,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
-environment = grassland(num_hunter=1, num_prey=100, size=100)
+environment = grassland(num_hunter=1, num_prey=100, num_OmegaPredator=5, size=100)
 # set up matplotlib
 plt.ion()
 
@@ -205,6 +205,7 @@ for i_episode in range(num_episodes):
     state = torch.tensor(state.clone(), dtype=torch.float32, device=device).unsqueeze(0)
     for t in count():
         # if i_episode % 10 == 0:
+        environment._update_possessed_entities()
         environment._render_frame()
         done = False
         if t >= max_iter: done=True

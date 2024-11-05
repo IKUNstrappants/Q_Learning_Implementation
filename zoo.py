@@ -1,4 +1,7 @@
 import random
+
+import numpy as np
+
 from ideas import *
 from utilities import *
 from gym_examples_main.gym_examples.envs import AnimalEnv, BridgeEnv
@@ -24,6 +27,8 @@ class animal():
         self.ray = ray
         self.field = field
         self.size = 0
+        # self.type values
+        # 1: hunter   2: prey     3: barrier      4: omega_predator
         self.type = 0
         self.id = id
         self.score = 0
@@ -38,25 +43,23 @@ class animal():
         pass
 
     def cheatWalk(self):
-        targets = list(self.field.hunters.values()) + list(self.field.preys.values())
-        distance = 99.0
+        targets = []
+        if self.type == 4:
+            targets = list(self.field.hunters.values())
+        distance = 40.0
         closest_ = targets[0]
         for target in targets:
             if target == self or target.alive==False:
                 pass
             target_to_self = self.location - target.location
             dist = vectorDistance(target_to_self, 0)
-            if target.type==1 and self.type==2:
+            if self.type == 1 or self.type == 4:
                 if dist <= distance:
                     distance = dist
                     closest_ = target
-            elif target.type==2 and self.type==1:
-                if dist <= distance:
-                    distance = dist
-                    closest_ = target
-        if distance<99.:
+        if distance < 40.:
             dist_vec = self.location - closest_.location
-            self.location += dist_vec / vectorDistance(dist_vec, 0) * (1 if self.type==2 else -1)
+            self.location += dist_vec / vectorDistance(dist_vec, 0) * (-1 if (self.type==1 or self.type==4) else -1)
 
     def vision(self, angle, length, targets):
         # print("get vision")
@@ -85,11 +88,11 @@ class animal():
         self.view_cache = torch.cat(view_cache)
         return self.view_cache
 
-    def walk(self, movement, action):
-        size = self.field.size
+    def walk(self, movement=None, action=None):
         # print("begin walk")
-        self.score -= self.perception._action_to_penalty[action]
         if not self.possessed:
+            size = self.field.size
+            self.score -= self.perception._action_to_penalty[action]
             move = movement[0] * 5.
             turn = movement[1] * 15.
             self.forward = rotateVector(self.forward, turn)
@@ -157,6 +160,15 @@ class hunter(animal):
         # if kills>0: print(f"kills = {kills}")
         self.score += kills
         return kills
+
+class omega_predator(animal):
+    def __init__(self, field):
+        super().__init__(field=field, possess=True)
+        self.type = 4
+
+    def reset(self):
+        size = self.field.size
+        self.location = torch.rand(2, dtype=torch.double)*size*2 - size
 
 
 class prey(animal):

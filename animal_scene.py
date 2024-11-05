@@ -1,29 +1,39 @@
-from zoo import hunter, prey
+from zoo import hunter, prey, omega_predator
 import pygame
 import numpy as np
 from utilities import *
 class grassland():
-    def __init__(self, num_hunter=1, num_prey=10, size=100):
+    def __init__(self, num_hunter=1, num_prey=10, num_OmegaPredator=5, size=100):
         self.hunters = {}
         self.preys = {}
+        self.OmegaPredators = {}
         self.size=size
         self.window = None
         self.render_mode = "human"
         self.clock = None
         self.window_size = 512  # The size of the PyGame window
         for i in range(num_hunter):
-            self.hunters[i] = (hunter(field=self, id=i))
+            self.hunters[i] = hunter(field=self, id=i)
         for i in range(num_prey):
-            self.preys[i+num_hunter+10] = (prey(field=self, id=i+num_hunter+10))
+            self.preys[i+num_hunter+10] = prey(field=self, id=i+num_hunter+10)
+        for i in range(num_OmegaPredator):
+            self.OmegaPredators[i+num_hunter+10+num_prey+10] = omega_predator
 
     def _get_all_entities(self):
-        return list(self.hunters.values()) + list(self.preys.values())
+        return list(self.hunters.values()) + list(self.preys.values()) + list(self.OmegaPredators.values())
+
+    def _update_possessed_entities(self):
+        for entity in self._get_all_entities():
+            if entity.possessed:
+                entity.walk()
 
     def reset(self):
         for hunterID in self.hunters.keys():
             self.hunters[hunterID].reset()
         for preyID in self.preys.keys():
             self.preys[preyID].reset()
+        for OmegaPredatorID in self.OmegaPredators.keys():
+            self.OmegaPredators[OmegaPredatorID].reset()
 
     def _render_entity(self, entity, canvas, pix_square_size):
         screen_position = pix_square_size * (entity.location.numpy() + self.size) / 2
