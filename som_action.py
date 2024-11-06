@@ -9,7 +9,7 @@ class SOM():
         self.epsilon = epsilon
         self.decay_factor = decay_factor
 
-        grid_x = np.array([-3, 0, 1, 5, 9], dtype=float).repeat(5)
+        grid_x = np.array([-3, 0, 3, 6, 9], dtype=float).repeat(5)
         grid_y = np.array([[-10, -5, 0, 5, 10]], dtype=float).T.repeat(5, axis=1).T.flatten()
         self.grid = np.concatenate((grid_x[:, np.newaxis], grid_y[:, np.newaxis]), axis=1)
 

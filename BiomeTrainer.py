@@ -109,12 +109,13 @@ def select_action(state):
 episode_durations = []
 score_cache = []
 
-def plot_durations(show_result=False):
-    fig = plt.figure(1, figsize=(12, 5))
+def plot_durations(show_result=False, action_frequency=None):
+    fig = plt.figure(1, figsize=(8, 8))
     fig.clf()
-    gs = gridspec.GridSpec(1, 3, width_ratios=[1, 0.2, 1], height_ratios=[1])
-    ax1 = fig.add_subplot(gs[:, 0])
-    ax2 = fig.add_subplot(gs[:, 2])
+    gs = gridspec.GridSpec(2, 2, width_ratios=[1, 1], height_ratios=[1, 1])
+    ax1 = fig.add_subplot(gs[0, :])
+    ax2 = fig.add_subplot(gs[1, 0])
+    ax3 = fig.add_subplot(gs[1, 1])
     score = torch.tensor(score_cache, dtype=torch.float)
     if show_result:
         ax1.set_title('Result')
@@ -133,7 +134,12 @@ def plot_durations(show_result=False):
     ax2.set_title('Self Organizing Map')
     ax2.set_xlabel('forward')
     ax2.set_ylabel('rotation')
-    ax2.scatter(scatter[:, 0], scatter[:, 1], c=np.arange(scatter.shape[0]), cmap='viridis')
+    ax2.scatter(scatter[:, 0], scatter[:, 1], c=np.arange(scatter.shape[0]), s=action_frequency * 100, cmap='viridis')
+
+    ax3.set_title('action frequency map')
+    ax3.set_xlabel('action')
+    ax3.set_ylabel('frequency')
+    ax3.bar(np.arange(len(action_frequency)), action_frequency)
 
     plt.pause(1)  # pause a bit so that plots are updated
     '''
@@ -196,12 +202,11 @@ def optimize_model():
 max_iter = 600
 
 if torch.cuda.is_available() or torch.backends.mps.is_available():
-    num_episodes = 400
+    num_episodes = 600
 else:
     num_episodes = 50
 
 pygame.init()
-
 
 flag = 1 # implement som or not
 som = None
@@ -214,6 +219,7 @@ for i_episode in range(num_episodes):
     state, info = hunter.perception.reset()
     # print(state, type(state))
     state = torch.tensor(state.clone(), dtype=torch.float32, device=device).unsqueeze(0)
+    action_frequency = np.zeros(som.grid.shape[0], dtype=float)
     for t in count():
         # if i_episode % 10 == 0:
         environment._update_possessed_entities()
@@ -221,6 +227,7 @@ for i_episode in range(num_episodes):
         done = False
         if t >= max_iter: done=True
         action = select_action(state)
+        action_frequency[action.item()] += 1
         # print("action is \n",action)
         if flag:
             continuous_action = som.perturbed_action(action.item()) # step 3 and 4 in the paper
@@ -266,11 +273,11 @@ for i_episode in range(num_episodes):
 
         if done:
             episode_durations.append(t + 1)
-            score_cache.append(hunter.score)
-            plot_durations()
+            score_cache.append(reward.item())
+            plot_durations(action_frequency=action_frequency / np.sum(action_frequency))
             # if i_episode % 10 == 0:
             environment.close()
-            print(f"{i_episode}th episode: {t} iterations, end up with {hunter.score} reward")
+            print(f"{i_episode}th episode: {t} iterations, end up with {reward.item()} reward")
             break
 
 print('Complete')
