@@ -2,6 +2,7 @@ from ideas import PredatorAI
 from animal_scene import grassland
 import math
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 from collections import namedtuple, deque
 from itertools import count
 from som_action import *
@@ -109,23 +110,32 @@ episode_durations = []
 score_cache = []
 
 def plot_durations(show_result=False):
-    plt.figure(1)
+    fig = plt.figure(1, figsize=(12, 5))
+    fig.clf()
+    gs = gridspec.GridSpec(1, 3, width_ratios=[1, 0.2, 1], height_ratios=[1])
+    ax1 = fig.add_subplot(gs[:, 0])
+    ax2 = fig.add_subplot(gs[:, 2])
     score = torch.tensor(score_cache, dtype=torch.float)
     if show_result:
-        plt.title('Result')
+        ax1.set_title('Result')
     else:
-        plt.clf()
-        plt.title('Training...')
-    plt.xlabel('Episode')
-    plt.ylabel('reward')
-    plt.plot(score.numpy())
+        ax1.set_title('Training...')
+    ax1.plot(score.numpy())
+    ax1.set_xlabel('Episode')
+    ax1.set_ylabel('reward')
     # Take 50 episode averages and plot them too
     if len(score) >= 50:
         means = score.unfold(0, 50, 1).mean(1).view(-1)
         means = torch.cat((torch.zeros(49), means))
-        plt.plot(means.numpy())
+        ax1.plot(means.numpy())
 
-    plt.pause(0.01)  # pause a bit so that plots are updated
+    scatter = som.grid
+    ax2.set_title('Self Organizing Map')
+    ax2.set_xlabel('forward')
+    ax2.set_ylabel('rotation')
+    ax2.scatter(scatter[:, 0], scatter[:, 1], c=np.arange(scatter.shape[0]), cmap='viridis')
+
+    plt.pause(1)  # pause a bit so that plots are updated
     '''
     if is_ipython:
         if not show_result:
@@ -134,11 +144,6 @@ def plot_durations(show_result=False):
         else:
             display.display(plt.gcf())
     '''
-
-def plot_som(som):
-    scatter = som.grid.reshape(-1, 2)
-    plt.scatter(scatter[:, 0], scatter[:, 1])
-    plt.show()
 
 
 def optimize_model():
@@ -188,10 +193,10 @@ def optimize_model():
     optimizer.step()
 
 
-max_iter = 500
+max_iter = 600
 
 if torch.cuda.is_available() or torch.backends.mps.is_available():
-    num_episodes = 600
+    num_episodes = 400
 else:
     num_episodes = 50
 
@@ -201,7 +206,7 @@ pygame.init()
 flag = 1 # implement som or not
 som = None
 if flag:
-    som = SOM(weight_dim=2, width=5, height=5,learning_rate=0.01,lamda=0.5,epsilon=1,decay_factor=0.99)
+    som = SOM(weight_dim=2,learning_rate=0.2,lamda=0.5,epsilon=1,decay_factor=0.99)
 
 for i_episode in range(num_episodes):
     # Initialize the environment and get its state

@@ -99,6 +99,7 @@ class grassland():
             )
 
     def close(self):
+        return
         if self.window is not None:
             pygame.display.quit()
             self.window = None
