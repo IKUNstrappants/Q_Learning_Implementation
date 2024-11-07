@@ -79,9 +79,9 @@ class AnimalEnv(gym.Env):
         for entity in self.animal.field.OmegaPredators.values():
             dist_current = vectorDistance(self.animal.location, entity.location)
             distance = min(dist_current, distance)
-        danger = 0.1 / distance if distance < 10 else 0
+        danger = 0.2 / (distance+1) if distance < 10 else 0
 
-        reward = -0.01 * abs(action[0]) - abs(0.001 * action[1]) - danger
+        reward = -0.005 * abs(action[0]) - abs(0.005 * action[1]) - danger
         if self.animal.type == 1:
             reward += self.animal.hunt()
         elif self.animal.type == 2:
@@ -91,5 +91,6 @@ class AnimalEnv(gym.Env):
         # reward = 1 if terminated else 0  # Binary sparse rewards
         observation = self._get_obs()
         info = self._get_info()
+        self.animal.score += reward.item()
 
         return observation, reward, terminated, False, info

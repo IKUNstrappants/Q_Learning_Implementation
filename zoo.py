@@ -49,6 +49,7 @@ class animal():
         elif self.type == 2:
             return
         distance = 40.0
+        # print(self.type)
         closest_ = targets[0]
         for target in targets:
             if target == self or target.alive==False:
@@ -68,10 +69,11 @@ class animal():
         type, distance = 0., 10000.
         for target in targets:
             dist = vectorDistance(target.location, self.location)
-            if torch.dot(target.location-self.location, ray)<=target.size and dist <= length and dist < distance:
+            if 0 <= torch.dot(target.location-self.location, ray) <= target.size and dist <= length and dist < distance:
                 type = target.type
                 distance = dist
-        return torch.tensor([[type, 1.0 / distance]]).to(device)
+        distance = 1.0 / (distance + 1)
+        return torch.tensor([[type, distance]]).to(device)
 
     def view(self):
         targets = self.field._get_all_entities()
@@ -81,7 +83,7 @@ class animal():
                 continue
             # print(target, target.location)
             dist = vectorDistance(target.location, self.location)
-            if 1. < dist < 21.:
+            if dist < 21.:
                 available.append(target)
         view_cache = []
         for index in range(len(self.ray[0])):
@@ -93,7 +95,6 @@ class animal():
         # print("begin walk")
         if not self.possessed:
             size = self.field.size
-            self.score -= self.perception._action_to_penalty[action]
             move = movement[0] * 5.
             turn = movement[1] * 15.
             self.forward = rotateVector(self.forward, turn)
@@ -104,10 +105,6 @@ class animal():
     #new add
     def continuous_walk(self, action):
         size = self.field.size
-        # print("begin walk")
-        
-        #penalty ??
-        # self.score -= self.perception._action_to_penalty[action]
         
         if not self.possessed:
             move = action[0]
@@ -129,7 +126,7 @@ class hunter(animal):
                          ray=[[-150, -30, -15, -5,  0,  5, 15, 30, 150, 180],
                               [  15,  10,  15, 20, 20, 20, 15, 10,  15,  20]],
                          possess=False)
-        self.size = 4.
+        self.size = 1.
         self.type = 1
         self._reset_upon_death = False
 
@@ -157,14 +154,13 @@ class hunter(animal):
                 if dist < 3:
                     target.die()
                     kills += 1.
-        # if kills>0: print(f"kills = {kills}")
-        self.score += kills
         return kills
 
 class omega_predator(animal):
     def __init__(self, field, id):
         super().__init__(field=field, possess=True, id=id)
         self.type = 4
+        self.size = 5
 
     def reset(self):
         size = self.field.size
@@ -264,3 +260,5 @@ class walker():
 
 
 
+if __name__ == "__main__":
+    pass

@@ -109,7 +109,7 @@ def select_action(state):
 episode_durations = []
 score_cache = []
 
-def plot_durations(show_result=False, action_frequency=None):
+def plot_durations(show_result=False, action_frequency=np.ones(25, dtype=float)):
     fig = plt.figure(1, figsize=(8, 8))
     fig.clf()
     gs = gridspec.GridSpec(2, 2, width_ratios=[1, 1], height_ratios=[1, 1])
@@ -125,6 +125,10 @@ def plot_durations(show_result=False, action_frequency=None):
     ax1.set_xlabel('Episode')
     ax1.set_ylabel('reward')
     # Take 50 episode averages and plot them too
+    if len(score) >= 20:
+        means = score.unfold(0, 20, 1).mean(1).view(-1)
+        means = torch.cat((torch.zeros(19), means))
+        ax1.plot(means.numpy())
     if len(score) >= 50:
         means = score.unfold(0, 50, 1).mean(1).view(-1)
         means = torch.cat((torch.zeros(49), means))
@@ -202,26 +206,25 @@ def optimize_model():
 max_iter = 600
 
 if torch.cuda.is_available() or torch.backends.mps.is_available():
-    num_episodes = 600
+    num_episodes = 2000
 else:
     num_episodes = 50
 
 pygame.init()
 
-flag = 1 # implement som or not
+use_som = True # implement som or not
 som = None
-if flag:
-    som = SOM(weight_dim=2,learning_rate=0.2,lamda=0.5,epsilon=1,decay_factor=0.99)
+if use_som:
+    som = SOM(weight_dim=2,learning_rate=0.2,lamda=1.0,epsilon=1,decay_factor=0.99)
 
 for i_episode in range(num_episodes):
     # Initialize the environment and get its state
     environment.reset()
     state, info = hunter.perception.reset()
-    # print(state, type(state))
-    state = torch.tensor(state.clone(), dtype=torch.float32, device=device).unsqueeze(0)
     action_frequency = np.zeros(som.grid.shape[0], dtype=float)
     for t in count():
         # if i_episode % 10 == 0:
+        state = torch.tensor(hunter.view().clone(), dtype=torch.float32, device=device).flatten(0).unsqueeze(0)
         environment._update_possessed_entities()
         environment._render_frame()
         done = False
@@ -229,7 +232,7 @@ for i_episode in range(num_episodes):
         action = select_action(state)
         action_frequency[action.item()] += 1
         # print("action is \n",action)
-        if flag:
+        if use_som:
             continuous_action = som.perturbed_action(action.item()) # step 3 and 4 in the paper
             # print("action is ",continuous_action)
             observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(continuous_action) # use continuous action to obtain the reward
@@ -239,14 +242,14 @@ for i_episode in range(num_episodes):
         reward = torch.tensor([reward], device=device)
         done = terminated or truncated or done
 
-        if flag:
+        if use_som:
             current_state_action_value = policy_net(state).gather(1,action)
         
         if terminated:
             next_state = None
         else:
             next_state = torch.tensor(observation, dtype=torch.float32, device=device).unsqueeze(0)
-            if flag:
+            if use_som:
                 next_state_value = target_net(next_state).max(1).values
                 # Compute the expected Q values
                 expected_state_action_value = (next_state_value * GAMMA) + reward
@@ -273,15 +276,15 @@ for i_episode in range(num_episodes):
 
         if done:
             episode_durations.append(t + 1)
-            score_cache.append(reward.item())
+            score_cache.append(hunter.score)
             plot_durations(action_frequency=action_frequency / np.sum(action_frequency))
             # if i_episode % 10 == 0:
             environment.close()
-            print(f"{i_episode}th episode: {t} iterations, end up with {reward.item()} reward")
+            print(f"{i_episode}th episode: {t} iterations, end up with {hunter.score} reward")
             break
 
 print('Complete')
-plot_durations(show_result=True)
+plot_durations(show_result=True, action_frequency=np.ones(25, dtype=float))
 plt.ioff()
 plt.show()
 

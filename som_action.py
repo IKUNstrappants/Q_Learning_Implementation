@@ -9,18 +9,20 @@ class SOM():
         self.epsilon = epsilon
         self.decay_factor = decay_factor
 
-        grid_x = np.array([-3, 0, 3, 6, 9], dtype=float).repeat(5)
-        grid_y = np.array([[-10, -5, 0, 5, 10]], dtype=float).T.repeat(5, axis=1).T.flatten()
+        grid_x = np.array([-5, 0, 5, 10, 15], dtype=float).repeat(5)
+        grid_y = np.array([[-15, -7.5, 0, 7.5, 15]], dtype=float).T.repeat(5, axis=1).T.flatten()
         self.grid = np.concatenate((grid_x[:, np.newaxis], grid_y[:, np.newaxis]), axis=1)
 
     def perturbed_action(self,unit):
         proposed_action = self.grid[unit,:]
+        if self.lr <= 0:
+            return proposed_action
         noise = np.random.uniform(-1, 1, self.weight_dim) * self.epsilon
-
         return proposed_action + noise
         
     def update_weights(self,action,iteration):
-    
+        if self.lr <= 0:
+            return
         learning_rate = self.lr * (self.decay_factor ** iteration)
         lamda = self.lamda * (self.decay_factor ** iteration)
         

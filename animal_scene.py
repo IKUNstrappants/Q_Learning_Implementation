@@ -37,6 +37,7 @@ class grassland():
 
     def _render_entity(self, entity, canvas, pix_square_size):
         screen_position = pix_square_size * (entity.location.numpy() + self.size) / 2
+        screen_coord = lambda x: pix_square_size * (x + self.size) / 2
         color_code = {
             0: np.array([0, 0, 0]),     # barrier
             1: np.array([255, 0, 0]),   # predator
@@ -44,7 +45,7 @@ class grassland():
             4: np.array([255, 255, 0]),   # omega_predator
         }
         # color = color_code[entity.type * 10 + (1 if entity.alive else 0)]
-        pygame.draw.circle(surface=canvas, color=color_code[entity.type], center=screen_position, radius=7, width=0 if entity.alive else 4)
+        pygame.draw.circle(surface=canvas, color=color_code[entity.type], center=screen_coord(entity.location.numpy()), radius=7, width=0 if entity.alive else 4)
         if entity.view_cache is not None:
             for i in range(len(entity.ray[0])):
                 angle  = entity.ray[0][i]
@@ -57,16 +58,16 @@ class grassland():
                 pygame.draw.line(
                     canvas,
                     color_code[entity.type] * 0.5,
-                    screen_position,
-                    pix_square_size * ((entity.location + direction * length).numpy() + self.size) / 2,
+                    screen_coord(entity.location.numpy()),
+                    screen_coord((entity.location + direction * length).numpy()),
                     width=3,
                 )
                 if type != 0:
                     pygame.draw.line(
                         canvas,
                         ray_color,
-                        screen_position,
-                        pix_square_size * ((entity.location + direction * distance.item()).numpy() + self.size) / 2,
+                        screen_coord(entity.location.numpy()),
+                        screen_coord((entity.location + direction * distance.item()).numpy()),
                         width=3,
                     )
 
