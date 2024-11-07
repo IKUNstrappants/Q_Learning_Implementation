@@ -127,12 +127,12 @@ def plot_durations(show_result=False, action_frequency=np.ones(25, dtype=float))
     # Take 50 episode averages and plot them too
     if len(score) >= 20:
         means = score.unfold(0, 20, 1).mean(1).view(-1)
-        means = torch.cat((torch.zeros(19), means))
-        ax1.plot(means.numpy())
+        # means = torch.cat((torch.zeros(19), means))
+        ax1.plot(means.numpy(), np.arange(10, 10+means.shape[0]))
     if len(score) >= 50:
         means = score.unfold(0, 50, 1).mean(1).view(-1)
-        means = torch.cat((torch.zeros(49), means))
-        ax1.plot(means.numpy())
+        # means = torch.cat((torch.zeros(49), means))
+        ax1.plot(means.numpy(), np.arange(25, 25+means.shape[0]))
 
     scatter = som.grid
     ax2.set_title('Self Organizing Map')

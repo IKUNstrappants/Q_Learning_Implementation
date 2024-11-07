@@ -1,13 +1,14 @@
 import numpy as np
 import random
 class SOM():
-    def __init__(self,  weight_dim=2, n_actions=25, learning_rate=0.003, lamda=0.5, epsilon=1, decay_factor=0.99):
+    def __init__(self,  weight_dim=2, n_actions=25, learning_rate=0.003, lamda=0.5, epsilon=1, decay_factor=0.99, margin=0.5):
         self.weight_dim = weight_dim
         self.n_actions = n_actions
         self.lr = learning_rate
         self.lamda = lamda
         self.epsilon = epsilon
         self.decay_factor = decay_factor
+        self.margin = margin
 
         grid_x = np.array([-5, 0, 5, 10, 15], dtype=float).repeat(5)
         grid_y = np.array([[-15, -7.5, 0, 7.5, 15]], dtype=float).T.repeat(5, axis=1).T.flatten()
@@ -28,6 +29,8 @@ class SOM():
         
         for i in range(self.grid.shape[0]):
             distance_to_bmu = np.linalg.norm(self.grid[i]-action)
+            if distance_to_bmu <= self.margin:
+                continue
             neighborhood_func = np.exp(- distance_to_bmu**2 / (2 * lamda **2))
             delta = learning_rate * neighborhood_func * (action - self.grid[i])
             self.grid[i] += delta
