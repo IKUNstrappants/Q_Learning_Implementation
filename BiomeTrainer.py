@@ -128,11 +128,11 @@ def plot_durations(show_result=False, action_frequency=np.ones(25, dtype=float))
     if len(score) >= 20:
         means = score.unfold(0, 20, 1).mean(1).view(-1)
         # means = torch.cat((torch.zeros(19), means))
-        ax1.plot(means.numpy(), np.arange(10, 10+means.shape[0]))
-    if len(score) >= 50:
-        means = score.unfold(0, 50, 1).mean(1).view(-1)
+        ax1.plot(np.arange(10, 10+means.shape[0]), means.numpy())
+    if len(score) >= 80:
+        means = score.unfold(0, 80, 1).mean(1).view(-1)
         # means = torch.cat((torch.zeros(49), means))
-        ax1.plot(means.numpy(), np.arange(25, 25+means.shape[0]))
+        ax1.plot(np.arange(40, 40+means.shape[0]), means.numpy())
 
     scatter = som.grid
     ax2.set_title('Self Organizing Map')
@@ -215,7 +215,7 @@ pygame.init()
 use_som = True # implement som or not
 som = None
 if use_som:
-    som = SOM(weight_dim=2,learning_rate=0.2,lamda=1.0,epsilon=1,decay_factor=0.99)
+    som = SOM(weight_dim=2,learning_rate=0.2,lamda=1.0,epsilon=1,decay_factor=0.995)
 
 for i_episode in range(num_episodes):
     # Initialize the environment and get its state
@@ -284,7 +284,7 @@ for i_episode in range(num_episodes):
             break
 
 print('Complete')
-plot_durations(show_result=True, action_frequency=np.ones(25, dtype=float))
+# plot_durations(show_result=True, action_frequency=np.ones(25, dtype=float))
 plt.ioff()
 plt.show()
 
