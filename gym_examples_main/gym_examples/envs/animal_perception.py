@@ -4,7 +4,7 @@ import numpy as np
 from utilities import *
 
 class AnimalEnv(gym.Env):
-    def __init__(self, animal=None):
+    def __init__(self, animal=None, action_space=25):
         super().__init__()
         self.animal = animal
 
@@ -13,7 +13,7 @@ class AnimalEnv(gym.Env):
         self.observation_space = spaces.Discrete(1)
 
         # We have 4 actions, corresponding to "stay", "right", "forward", "left"
-        self.action_space = spaces.Discrete(25)
+        self.action_space = spaces.Discrete(action_space)
 
         """
         The following dictionary maps abstract actions from `self.action_space` to 

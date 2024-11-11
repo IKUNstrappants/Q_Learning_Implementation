@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import torch
 class SOM():
     def __init__(self,  weight_dim=2, n_actions=25, learning_rate=0.003, lamda=0.5, epsilon=1, decay_factor=0.99, margin=0.5):
         self.weight_dim = weight_dim
@@ -34,6 +35,23 @@ class SOM():
             neighborhood_func = np.exp(- distance_to_bmu**2 / (2 * lamda **2))
             delta = learning_rate * neighborhood_func * (action - self.grid[i])
             self.grid[i] += delta
+
+class CAM():
+    def __init__(self,  weight_dim=2, learning_rate=0.003):
+        self.weight_dim = weight_dim
+        self.lr = learning_rate
+
+        grid_x = np.array([-20, 30], dtype=float).repeat(2)
+        grid_y = np.array([[-30., 30.]], dtype=float).T.repeat(2, axis=1).T.flatten()
+        self.grid = np.concatenate((grid_x[:, np.newaxis], grid_y[:, np.newaxis]), axis=1)
+
+    def propose_action(self, weight):
+        return np.sum(self.grid * weight.T, axis=0)
+
+    def random_action(self):
+        random_weights = np.random.uniform(0, 1, self.grid.shape[0])
+        weights = random_weights / random_weights.sum()
+        return np.average(self.grid, weights=weights, axis=0), weights.reshape(1, -1)
 
 if __name__ == "__main__":
     som = SOM()

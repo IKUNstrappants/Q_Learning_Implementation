@@ -1,4 +1,7 @@
 import random
+
+import torch
+
 from ideas import *
 from ideas import IdleAI
 from utilities import *
@@ -15,7 +18,8 @@ class animal():
     def __init__(self, field, AI=IdleAI, id=0, ray=None,
                  location=torch.zeros(2),
                  forward=torch.tensor([1.,0.], dtype=torch.double),
-                 possess=False):
+                 possess=False,
+                 action_space=25):
 
         self.location = location.double()
         self.forward = forward.double()
@@ -33,7 +37,7 @@ class animal():
         self.possessed = possess
         self.lifetime = 0
         self.alive = True
-        self.perception = AnimalEnv(animal=self)
+        self.perception = AnimalEnv(animal=self, action_space=action_space)
         self.view_cache = None
         self._reset_upon_death = False
 
@@ -88,7 +92,7 @@ class animal():
         view_cache = []
         for index in range(len(self.ray[0])):
             view_cache.append(self.vision(self.ray[0][index], self.ray[1][index], available))
-        self.view_cache = torch.cat(view_cache)
+        self.view_cache = torch.cat(view_cache).to(torch.float32)
         return self.view_cache
 
     def walk(self, movement=None, action=None):
@@ -121,11 +125,11 @@ class animal():
             self.reset()
 
 class hunter(animal):
-    def __init__(self, field, AI=PredatorAI, id=0):
+    def __init__(self, field, AI=PredatorAI, id=0, action_space=25):
         super().__init__(field, AI, id=id,
                          ray=[[-150, -30, -15, -5,  0,  5, 15, 30, 150, 180],
                               [  15,  10,  15, 20, 20, 20, 15, 10,  15,  20]],
-                         possess=False)
+                         possess=False, action_space=action_space)
         self.size = 1.
         self.type = 1
         self._reset_upon_death = False
@@ -167,12 +171,12 @@ class omega_predator(animal):
         self.location = torch.rand(2, dtype=torch.double)*size*2 - size
 
 class prey(animal):
-    def __init__(self, field, AI=PreyAI, id=0):
+    def __init__(self, field, AI=PreyAI, id=0, action_space=25):
         super().__init__(field, AI, id=id,
                          ray=[[-70, -30, -15,  0,  15, 30, 70],
                               [  7,   7,   7,  7,   7,  7,  7]],
                          possess=True,
-                         )
+                         action_space=action_space)
         self.size = 3.
         self.type = 2
         self._reset_upon_death = True

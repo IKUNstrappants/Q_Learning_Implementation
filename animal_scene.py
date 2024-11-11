@@ -3,7 +3,7 @@ import pygame
 import numpy as np
 from utilities import *
 class grassland():
-    def __init__(self, num_hunter=1, num_prey=10, num_OmegaPredator=5, size=100):
+    def __init__(self, num_hunter=1, num_prey=10, num_OmegaPredator=5, size=100, hunter_n_action=25, prey_n_action=1):
         self.hunters = {}
         self.preys = {}
         self.OmegaPredators = {}
@@ -13,9 +13,9 @@ class grassland():
         self.clock = None
         self.window_size = 1024  # The size of the PyGame window
         for i in range(num_hunter):
-            self.hunters[i] = hunter(field=self, id=i)
+            self.hunters[i] = hunter(field=self, id=i, action_space=hunter_n_action)
         for i in range(num_prey):
-            self.preys[i+num_hunter+10] = prey(field=self, id=i+num_hunter+10)
+            self.preys[i+num_hunter+10] = prey(field=self, id=i+num_hunter+10, action_space=prey_n_action)
         for i in range(num_OmegaPredator):
             self.OmegaPredators[i+num_hunter+10+num_prey+10] = omega_predator(field=self, id=i+num_hunter+10+num_prey+10)
 

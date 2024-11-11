@@ -3,7 +3,6 @@ from animal_scene import grassland
 import math
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from collections import namedtuple, deque
 from itertools import count
 from som_action import *
 import torch
@@ -11,20 +10,50 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import pygame
+from collections import namedtuple, deque
 
-environment = grassland(num_hunter=1, num_prey=100, num_OmegaPredator=15, size=100)
-# set up matplotlib
-plt.ion()
+# BATCH_SIZE is the number of transitions sampled from the replay buffer
+# GAMMA is the discount factor as mentioned in the previous section
+# EPS_START is the starting value of epsilon
+# EPS_END is the final value of epsilon
+# EPS_DECAY controls the rate of exponential decay of epsilon, higher means a slower decay
+# TAU is the update rate of the target network
+# LR is the learning rate of the ``AdamW`` optimizer
 
-# if GPU is to be used
+use_cam = False
+use_som = True # implement som or not
+
+BATCH_SIZE = 128
+GAMMA = 0.99
+EPS_START = 0.9
+EPS_END = 0.05
+EPS_DECAY = 1000
+TAU = 0.005
+LR = 1e-4
+environment = grassland(num_hunter=1, num_prey=100, num_OmegaPredator=15, size=100, hunter_n_action=4 if use_cam else 25)
+hunter = environment.hunters[0]
+# Get number of actions from gym action space
+n_actions = hunter.perception.action_space.n
+# Get the number of state observations
+state, info = hunter.perception.reset()
+n_observations = len(state)
 device = torch.device(
     "cuda" if torch.cuda.is_available() else
     #"mps" if torch.backends.mps.is_available() else
     "cpu"
 )
+policy_net = PredatorAI(n_actions).to(device)
+target_net = PredatorAI(n_actions).to(device)
+target_net.load_state_dict(policy_net.state_dict())
+
+optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
+
+steps_done = 0
 
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
+cam = CAM(weight_dim=2,learning_rate=0.2)
+som = SOM(weight_dim=2,learning_rate=0.2,lamda=1.0,epsilon=1,decay_factor=0.995,margin=1.0)
 
 class ReplayMemory(object):
 
@@ -40,55 +69,11 @@ class ReplayMemory(object):
 
     def __len__(self):
         return len(self.memory)
-
-class example_DQN(nn.Module):
-
-    def __init__(self, n_observations, n_actions):
-        super().__init__()
-        self.layer1 = nn.Linear(n_observations, 128)
-        self.layer2 = nn.Linear(128, 128)
-        self.layer3 = nn.Linear(128, n_actions)
-
-    # Called with either one element to determine next action, or a batch
-    # during optimization. Returns tensor([[left0exp,right0exp]...]).
-    def forward(self, x):
-        x = F.relu(self.layer1(x))
-        x = F.relu(self.layer2(x))
-        return self.layer3(x)
-
-
-# BATCH_SIZE is the number of transitions sampled from the replay buffer
-# GAMMA is the discount factor as mentioned in the previous section
-# EPS_START is the starting value of epsilon
-# EPS_END is the final value of epsilon
-# EPS_DECAY controls the rate of exponential decay of epsilon, higher means a slower decay
-# TAU is the update rate of the target network
-# LR is the learning rate of the ``AdamW`` optimizer
-BATCH_SIZE = 128
-GAMMA = 0.99
-EPS_START = 0.9
-EPS_END = 0.05
-EPS_DECAY = 1000
-TAU = 0.005
-LR = 1e-4
-
-hunter = environment.hunters[0]
-# Get number of actions from gym action space
-n_actions = hunter.perception.action_space.n
-# Get the number of state observations
-state, info = hunter.perception.reset()
-n_observations = len(state)
-
-policy_net = PredatorAI(n_actions).to(device)
-target_net = PredatorAI(n_actions).to(device)
-target_net.load_state_dict(policy_net.state_dict())
-
-optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
 memory = ReplayMemory(10000)
 
-
-steps_done = 0
-
+# set up matplotlib
+plt.ion()
+# if GPU is to be used
 
 def select_action(state):
     global steps_done
@@ -101,9 +86,18 @@ def select_action(state):
             # t.max(1) will return the largest column value of each row.
             # second column on max result is index of where max element was
             # found, so we pick action with the larger expected reward.
-            return policy_net(state).max(1).indices.view(1, 1)
+            if not use_cam:
+                action = policy_net(state).max(1).indices.view(1, 1)
+                return som.perturbed_action(action.item()), action
+            else:
+                weight = policy_net(state).numpy(force=True)
+                return cam.propose_action(weight), weight
     else:
-        return torch.tensor([[hunter.perception.action_space.sample()]], device=device, dtype=torch.long)
+        if not use_cam:
+            action = torch.tensor([[hunter.perception.action_space.sample()]], device=device, dtype=torch.long)
+            return som.perturbed_action(action.item()), action
+        else:
+            return cam.random_action()
 
 
 episode_durations = []
@@ -134,7 +128,7 @@ def plot_durations(show_result=False, action_frequency=np.ones(25, dtype=float))
         # means = torch.cat((torch.zeros(49), means))
         ax1.plot(np.arange(40, 40+means.shape[0]), means.numpy())
 
-    scatter = som.grid
+    scatter = som.grid if use_som else cam.grid
     ax2.set_title('Self Organizing Map')
     ax2.set_xlabel('forward')
     ax2.set_ylabel('rotation')
@@ -164,32 +158,46 @@ def optimize_model():
     # detailed explanation). This converts batch-array of Transitions
     # to Transition of batch-arrays.
     batch = Transition(*zip(*transitions))
-
+    #print("batch:", batch)
     # Compute a mask of non-final states and concatenate the batch elements
     # (a final state would've been the one after which simulation ended)
     non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
                                           batch.next_state)), device=device, dtype=torch.bool)
+    # print("non_final_mask:", non_final_mask)
     non_final_next_states = torch.cat([s for s in batch.next_state
                                                 if s is not None])
     state_batch = torch.cat(batch.state)
-    action_batch = torch.cat(batch.action)
+    # print(batch.action)
+    if not use_cam:
+        action_batch = torch.cat(batch.action)
     reward_batch = torch.cat(batch.reward)
-
+    # print(state_batch, action_batch, reward_batch)
     # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
     # columns of actions taken. These are the actions which would've been taken
     # for each batch state according to policy_net
-    state_action_values = policy_net(state_batch).gather(1, action_batch)
+    if not use_cam:
+        next_state_values = torch.zeros(BATCH_SIZE, device=device)
+        state_action_values = policy_net(state_batch).gather(1, action_batch)
+        # print(state_action_values.shape)
+        with torch.no_grad():
+            next_state_values[non_final_mask] = target_net(non_final_next_states).max(1).values
+    else:
+        next_state_values = torch.zeros((BATCH_SIZE, n_actions), device=device)
+        state_action_values = policy_net(state_batch)
+        with torch.no_grad():
+            next_state_values[non_final_mask] = target_net(non_final_next_states)
+        print(state_action_values.shape, torch.mean(torch.std(state_action_values, dim=1)).item())
 
     # Compute V(s_{t+1}) for all next states.
     # Expected values of actions for non_final_next_states are computed based
     # on the "older" target_net; selecting their best reward with max(1).values
     # This is merged based on the mask, such that we'll have either the expected
     # state value or 0 in case the state was final.
-    next_state_values = torch.zeros(BATCH_SIZE, device=device)
-    with torch.no_grad():
-        next_state_values[non_final_mask] = target_net(non_final_next_states).max(1).values
+
+    # print(state_action_values, next_state_values)
     # Compute the expected Q values
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
+    # print("grad:", expected_state_action_values.grad)
 
     # Compute Huber loss
     criterion = nn.SmoothL1Loss()
@@ -212,32 +220,35 @@ else:
 
 pygame.init()
 
-use_som = True # implement som or not
-som = None
-if use_som:
-    som = SOM(weight_dim=2,learning_rate=0.2,lamda=1.0,epsilon=1,decay_factor=0.995)
-
 for i_episode in range(num_episodes):
     # Initialize the environment and get its state
     environment.reset()
     state, info = hunter.perception.reset()
-    action_frequency = np.zeros(som.grid.shape[0], dtype=float)
+    action_frequency = np.zeros(n_actions, dtype=float)
     for t in count():
         # if i_episode % 10 == 0:
-        state = torch.tensor(hunter.view().clone(), dtype=torch.float32, device=device).flatten(0).unsqueeze(0)
+        state = hunter.view().clone().flatten(0).unsqueeze(0)
         environment._update_possessed_entities()
         environment._render_frame()
         done = False
         if t >= max_iter: done=True
-        action = select_action(state)
-        action_frequency[action.item()] += 1
-        # print("action is \n",action)
-        if use_som:
-            continuous_action = som.perturbed_action(action.item()) # step 3 and 4 in the paper
-            # print("action is ",continuous_action)
-            observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(continuous_action) # use continuous action to obtain the reward
+        continuous_action, action = select_action(state)
+        if not use_cam:
+            action_frequency[action.item()] += 1
         else:
-            observation, reward, terminated, truncated, _ = hunter.perception.step(action.item())
+            action_frequency += action.reshape(-1)
+        '''
+        # print("action is \n",action)
+            if use_som:
+                continuous_action = som.perturbed_action(action.item()) # step 3 and 4 in the paper
+                # print("action is ",continuous_action)
+                observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(continuous_action) # use continuous action to obtain the reward
+            else:
+                observation, reward, terminated, truncated, _ = hunter.perception.step(action.item())
+        else:
+            continuous_action = cam.propose_action(action)
+            observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(continuous_action)'''
+        observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(continuous_action)
         
         reward = torch.tensor([reward], device=device)
         done = terminated or truncated or done
