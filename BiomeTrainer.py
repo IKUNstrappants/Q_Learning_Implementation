@@ -11,6 +11,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import pygame
+from DDPG.DDPG_agent import DDPG
 
 environment = grassland(num_hunter=1, num_prey=100, num_OmegaPredator=15, size=100)
 # set up matplotlib
@@ -40,7 +41,7 @@ class ReplayMemory(object):
 
     def __len__(self):
         return len(self.memory)
-
+ 
 class example_DQN(nn.Module):
 
     def __init__(self, n_observations, n_actions):
@@ -155,7 +156,34 @@ def plot_durations(show_result=False, action_frequency=np.ones(25, dtype=float))
             display.display(plt.gcf())
     '''
 
+def plot_durations2(show_result=False):
+    fig = plt.figure(1, figsize=(12, 5))
+    fig.clf()
 
+    score = torch.tensor(score_cache, dtype=torch.float)
+    if show_result:
+        plt.title('Result')
+    else:
+        plt.title('Training...')
+    plt.plot(score.numpy())
+    plt.xlabel('Episode')
+    plt.ylabel('reward')
+    # Take 50 episode averages and plot them too
+    if len(score) >= 50:
+        means = score.unfold(0, 50, 1).mean(1).view(-1)
+        means = torch.cat((torch.zeros(49), means))
+        plt.plot(means.numpy())
+
+    plt.pause(0.1)  # pause a bit so that plots are updated
+    '''
+    if is_ipython:
+        if not show_result:
+            display.display(plt.gcf())
+            display.clear_output(wait=True)
+        else:
+            display.display(plt.gcf())
+    '''
+    
 def optimize_model():
     if len(memory) < BATCH_SIZE:
         return
@@ -202,7 +230,7 @@ def optimize_model():
     torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
     optimizer.step()
 
-
+    
 max_iter = 600
 
 if torch.cuda.is_available() or torch.backends.mps.is_available():
@@ -211,77 +239,124 @@ else:
     num_episodes = 50
 
 pygame.init()
-
-use_som = True # implement som or not
+use_DDPG = True
+use_som = False # implement som or not
 som = None
 if use_som:
     som = SOM(weight_dim=2,learning_rate=0.2,lamda=1.0,epsilon=1,decay_factor=0.995)
-
+    
+if use_DDPG:
+    agent = DDPG(nb_states=20, nb_actions= 2,hidden1=400, hidden2=300, init_w=0.003, learning_rate=0.0001, noise_theta=0.15 ,noise_mu=0.0, noise_sigma=0.3, batch_size=128,tau=0.001, discount=0.99, epsilon=50000)
+    
 for i_episode in range(num_episodes):
-    # Initialize the environment and get its state
-    environment.reset()
-    state, info = hunter.perception.reset()
-    action_frequency = np.zeros(som.grid.shape[0], dtype=float)
-    for t in count():
-        # if i_episode % 10 == 0:
-        state = torch.tensor(hunter.view().clone(), dtype=torch.float32, device=device).flatten(0).unsqueeze(0)
-        environment._update_possessed_entities()
-        environment._render_frame()
-        done = False
-        if t >= max_iter: done=True
-        action = select_action(state)
-        action_frequency[action.item()] += 1
-        # print("action is \n",action)
-        if use_som:
-            continuous_action = som.perturbed_action(action.item()) # step 3 and 4 in the paper
-            # print("action is ",continuous_action)
-            observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(continuous_action) # use continuous action to obtain the reward
-        else:
-            observation, reward, terminated, truncated, _ = hunter.perception.step(action.item())
-        
-        reward = torch.tensor([reward], device=device)
-        done = terminated or truncated or done
-
-        if use_som:
-            current_state_action_value = policy_net(state).gather(1,action)
-        
-        if terminated:
-            next_state = None
-        else:
-            next_state = torch.tensor(observation, dtype=torch.float32, device=device).unsqueeze(0)
-            if use_som:
-                next_state_value = target_net(next_state).max(1).values
-                # Compute the expected Q values
-                expected_state_action_value = (next_state_value * GAMMA) + reward
-                
-                if expected_state_action_value > current_state_action_value:
-                    som.update_weights(continuous_action,t)
-                
-        # Store the transition in memory
-        memory.push(state, action, next_state, reward)
-
-        # Move to the next state
-        state = next_state
-
-        # Perform one step of the optimization (on the policy network)
-        optimize_model()
-
-        # Soft update of the target network's weights
-        # θ′ ← τ θ + (1 −τ )θ′
-        target_net_state_dict = target_net.state_dict()
-        policy_net_state_dict = policy_net.state_dict()
-        for key in policy_net_state_dict:
-            target_net_state_dict[key] = policy_net_state_dict[key]*TAU + target_net_state_dict[key]*(1-TAU)
-        target_net.load_state_dict(target_net_state_dict)
-
-        if done:
-            episode_durations.append(t + 1)
-            score_cache.append(hunter.score)
-            plot_durations(action_frequency=action_frequency / np.sum(action_frequency))
+    if not use_DDPG:
+        # Initialize the environment and get its state
+        environment.reset()
+        state, info = hunter.perception.reset()
+        action_frequency = np.zeros(som.grid.shape[0], dtype=float)
+        for t in count():
             # if i_episode % 10 == 0:
-            environment.close()
-            print(f"{i_episode}th episode: {t} iterations, end up with {hunter.score} reward")
-            break
+            state = torch.tensor(hunter.view().clone(), dtype=torch.float32, device=device).flatten(0).unsqueeze(0)
+            environment._update_possessed_entities()
+            environment._render_frame()
+            done = False
+            if t >= max_iter: done=True
+            action = select_action(state)
+            action_frequency[action.item()] += 1
+            # print("action is \n",action)
+            if use_som:
+                continuous_action = som.perturbed_action(action.item()) # step 3 and 4 in the paper
+                # print("action is ",continuous_action)
+                observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(continuous_action) # use continuous action to obtain the reward
+            else:
+                observation, reward, terminated, truncated, _ = hunter.perception.step(action.item())
+            
+            reward = torch.tensor([reward], device=device)
+            done = terminated or truncated or done
+
+            if use_som:
+                current_state_action_value = policy_net(state).gather(1,action)
+            
+            if terminated:
+                next_state = None
+            else:
+                next_state = torch.tensor(observation, dtype=torch.float32, device=device).unsqueeze(0)
+                if use_som:
+                    next_state_value = target_net(next_state).max(1).values
+                    # Compute the expected Q values
+                    expected_state_action_value = (next_state_value * GAMMA) + reward
+                    
+                    if expected_state_action_value > current_state_action_value:
+                        som.update_weights(continuous_action,t)
+                    
+            # Store the transition in memory
+            memory.push(state, action, next_state, reward)
+
+            # Move to the next state
+            state = next_state
+
+            # Perform one step of the optimization (on the policy network)
+            optimize_model()
+
+            # Soft update of the target network's weights
+            # θ′ ← τ θ + (1 −τ )θ′
+            target_net_state_dict = target_net.state_dict()
+            policy_net_state_dict = policy_net.state_dict()
+            for key in policy_net_state_dict:
+                target_net_state_dict[key] = policy_net_state_dict[key]*TAU + target_net_state_dict[key]*(1-TAU)
+            target_net.load_state_dict(target_net_state_dict)
+            
+
+            if done:
+                episode_durations.append(t + 1)
+                score_cache.append(hunter.score)
+                plot_durations(action_frequency=action_frequency / np.sum(action_frequency))
+                # if i_episode % 10 == 0:
+                environment.close()
+                print(f"{i_episode}th episode: {t} iterations, end up with {hunter.score} reward")
+                break
+        
+    else:
+        state, info = hunter.perception.reset()
+        agent.reset(state.reshape(1,20))
+        for t in count():
+            
+            state = torch.tensor(hunter.view().clone(), dtype=torch.float32, device=device).flatten(0).unsqueeze(0)
+            environment._update_possessed_entities()
+            environment._render_frame()
+            done = False
+            if t >= max_iter: done=True
+
+            if t <= 20:
+                action = agent.random_action()
+            else:
+                action = agent.select_action(state).reshape(-1)
+                
+            
+            observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(action)
+            
+            reward = torch.tensor([reward], device=device)
+            done = terminated or truncated or done
+            
+            if terminated:
+                next_state = None
+            else:
+                next_state = torch.tensor(observation, dtype=torch.float32, device=device).unsqueeze(0)
+
+            agent.observe(reward,next_state)
+
+            # Perform one step of the optimization (on the policy network)
+            if t > 20:
+                agent.update_policy()
+            
+
+            if done:
+                episode_durations.append(t + 1)
+                score_cache.append(hunter.score)
+                plot_durations2()
+                environment.close()
+                print(f"{i_episode}th episode: {t} iterations, end up with {hunter.score} reward")
+                break
 
 print('Complete')
 # plot_durations(show_result=True, action_frequency=np.ones(25, dtype=float))
