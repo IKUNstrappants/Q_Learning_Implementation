@@ -77,9 +77,9 @@ class Memory(object):
         # This is probably not that important in practice but it seems cleaner.
         state = [current_observation]
         idx = len(self.recent_observations) - 1
-        for offset in range(0, self.window_length - 1):
+        for offset in range(0, self.window_length - 1): # 从后往前
             current_idx = idx - offset
-            current_terminal = self.recent_terminals[current_idx - 1] if current_idx - 1 >= 0 else False
+            current_terminal = self.recent_terminals[current_idx - 1] if current_idx - 1 >= 0 else False # 检查前一个状态是不是终止状态，如果是就停止，recent_state就这么多了
             if current_idx < 0 or (not self.ignore_episode_boundaries and current_terminal):
                 # The previously handled observation was terminal, don't add the current one.
                 # Otherwise we would leak into a different episode.
@@ -122,7 +122,7 @@ class SequentialMemory(Memory):
         # Create experiences
         experiences = []
         for idx in batch_idxs:
-            terminal0 = self.terminals[idx - 2] if idx >= 2 else False
+            terminal0 = self.terminals[idx - 2] if idx >= 2 else False # 避免因连续性中断（即回合结束后从新回合的初始状态开始）对训练带来负面影响
             while terminal0:
                 # Skip this transition because the environment was reset here. Select a new, random
                 # transition and use this instead. This may cause the batch to contain the same

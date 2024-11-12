@@ -6,7 +6,7 @@ from DDPG.DDPG_model import (Actor, Critic)
 from collections import namedtuple, deque
 import random
 from .random_noise import OrnsteinUhlenbeckProcess
-# from memory import SequentialMemory
+from .memory import SequentialMemory
 
 device = torch.device(
     "cuda" if torch.cuda.is_available() else
@@ -71,7 +71,8 @@ class DDPG(object):
         hard_update(self.critic_target, self.critic)
         
         #Create replay buffer
-        self.memory = ReplayMemory(10000)
+        self.memory1 = ReplayMemory(10000)
+        self.memory2 = SequentialMemory(limit=6000000, window_length=1)
         self.random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=noise_theta, mu=noise_mu, sigma=noise_sigma)
 
         # Hyper-parameters
@@ -90,9 +91,10 @@ class DDPG(object):
         if USE_CUDA: self.cuda()
 
     def update_policy(self):
+        
         if len(self.memory) < self.batch_size:
             return
-        transitions = self.memory.sample(self.batch_size)
+        transitions = self.memory1.sample(self.batch_size)
         # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
         # detailed explanation). This converts batch-array of Transitions
         # to Transition of batch-arrays.
@@ -127,9 +129,12 @@ class DDPG(object):
         self.critic.zero_grad()
 
         q_batch = self.critic([state_batch, action_batch])
+        #print(f"\n\nQ value is {q_batch}\n\n")
         
         value_loss = criterion(q_batch, target_q_batch)
+        print(value_loss)
         value_loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=1.0)
         self.critic_optim.step()
 
         # Actor update
@@ -162,11 +167,16 @@ class DDPG(object):
 
     def observe(self, r_t, s_t1):
         if self.is_training:
-            self.memory.push(self.s_t, self.a_t, s_t1, r_t)
+            self.memory1.push(self.s_t, self.a_t, s_t1, r_t)
             self.s_t = s_t1
-
+            
+    def observe2(self, r_t, s_t1, done):
+        if self.is_training:
+            self.memory2.append(self.s_t, self.a_t, r_t, done)
+            self.s_t = s_t1
+            
     def random_action(self):
-        action = np.random.uniform(-1.,1.,(1, self.nb_actions)) * np.array([15, 7])
+        action = np.random.uniform(-1.,1.,(1, self.nb_actions)) * np.array([3, 1])
         self.a_t = to_tensor(action).to(device=device, dtype=torch.float32)
         #print(f"random choose {self.a_t.size()}\n")
         return self.a_t
@@ -181,10 +191,54 @@ class DDPG(object):
         if decay_epsilon:
             self.epsilon -= self.depsilon
         
-        self.a_t = to_tensor(action).to(device=device, dtype=torch.float32)#.reshape(-1)
+        self.a_t = to_tensor(action).to(device=device, dtype=torch.float32) * torch.tensor([3,1], device=device,dtype=torch.float32)#.reshape(-1)
         # print(f"actor choose {self.a_t.size()}\n")
         return self.a_t
 
     def reset(self, obs):
         self.s_t = obs
         self.random_process.reset_states()
+        
+    def update_policy2(self):
+        # Sample batch
+        state_batch, action_batch, reward_batch, \
+        next_state_batch, terminal_batch = self.memory2.sample_and_split(self.batch_size)
+
+        # Prepare for the target q batch
+        next_q_values = self.critic_target([
+            to_tensor(next_state_batch),
+            self.actor_target(to_tensor(next_state_batch)),
+        ])
+        
+
+        target_q_batch = to_tensor(reward_batch) + \
+            self.discount*to_tensor(terminal_batch.astype(np.float32))*next_q_values
+
+        # Critic update
+        self.critic.zero_grad()
+
+        q_batch = self.critic([ to_tensor(state_batch), to_tensor(action_batch) ])
+        
+        q_batch = q_batch.float() if isinstance(q_batch, torch.Tensor) else torch.tensor(q_batch, dtype=torch.float32)
+        target_q_batch = target_q_batch.float() if isinstance(target_q_batch, torch.Tensor) else torch.tensor(target_q_batch, dtype=torch.float32)
+        
+        value_loss = criterion(q_batch, target_q_batch)
+        value_loss = value_loss.float()
+        value_loss.backward()
+        self.critic_optim.step()
+
+        # Actor update
+        self.actor.zero_grad()
+
+        policy_loss = -self.critic([
+            to_tensor(state_batch),
+            self.actor(to_tensor(state_batch)) # a = \miu(s)
+        ])
+
+        policy_loss = policy_loss.mean()
+        policy_loss.backward()
+        self.actor_optim.step()
+
+        # Target update
+        soft_update(self.actor_target, self.actor, self.tau)
+        soft_update(self.critic_target, self.critic, self.tau)

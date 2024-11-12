@@ -16,6 +16,8 @@ class Actor(nn.Module):
         self.fc3 = nn.Linear(hidden2, nb_actions)
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
+        self.bn1 = nn.LayerNorm(hidden1)
+        self.bn2 = nn.LayerNorm(hidden2)
         self.init_weights(init_w)
     
     def init_weights(self, init_w):
@@ -25,8 +27,10 @@ class Actor(nn.Module):
     
     def forward(self, x):
         out = self.fc1(x)
+        out = self.bn1(out)
         out = self.relu(out)
         out = self.fc2(out)
+        out = self.bn2(out)
         out = self.relu(out)
         out = self.fc3(out)
         out = self.tanh(out)
@@ -39,6 +43,8 @@ class Critic(nn.Module):
         self.fc2 = nn.Linear(hidden1+nb_actions, hidden2)
         self.fc3 = nn.Linear(hidden2, 1)
         self.relu = nn.ReLU()
+        self.bn1 = nn.LayerNorm(hidden1)
+        self.bn2 = nn.LayerNorm(hidden2)
         self.init_weights(init_w)
     
     def init_weights(self, init_w):
@@ -49,11 +55,13 @@ class Critic(nn.Module):
     def forward(self, xs):
         x, a = xs
         out = self.fc1(x) # 先对状态进行特征提取
+        out = self.bn1(out)
         out = self.relu(out)
         #print("out size is\n", out.size())
         #print(a.size())
         # debug()
         out = self.fc2(torch.cat([out,a],1))
+        out = self.bn2(out)
         out = self.relu(out)
         out = self.fc3(out)
         return out
