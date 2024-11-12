@@ -21,8 +21,8 @@ from DDPG.DDPG_agent import DDPG
 # TAU is the update rate of the target network
 # LR is the learning rate of the ``AdamW`` optimizer
 
-use_DDPG = True
-use_cam = False
+use_DDPG = False
+use_cam = True
 use_som = False # implement som or not
 
 BATCH_SIZE = 128
@@ -107,7 +107,7 @@ def select_action(state):
 episode_durations = []
 score_cache = []
 
-def plot_durations(show_result=False, action_frequency=np.ones(25, dtype=float)):
+def plot_durations(show_result=False, action_frequency=None):
     fig = plt.figure(1, figsize=(8, 8))
     fig.clf()
     gs = gridspec.GridSpec(2, 2, width_ratios=[1, 1], height_ratios=[1, 1])
@@ -167,9 +167,9 @@ def plot_durations2(show_result=False):
     plt.ylabel('reward')
     # Take 50 episode averages and plot them too
     if len(score) >= 50:
-        means = score.unfold(0, 50, 1).mean(1).view(-1)
-        means = torch.cat((torch.zeros(49), means))
-        plt.plot(means.numpy())
+        means = score.unfold(0, 20, 1).mean(1).view(-1)
+        # means = torch.cat((torch.zeros(19), means))
+        plt.plot(np.arange(10, 10 + means.shape[0]), means.numpy())
 
     plt.pause(0.1)  # pause a bit so that plots are updated
     
@@ -201,7 +201,6 @@ def optimize_model():
     if not use_cam:
         next_state_values = torch.zeros(BATCH_SIZE, device=device)
         state_action_values = policy_net(state_batch).gather(1, action_batch)
-        # print(state_action_values.shape)
         with torch.no_grad():
             next_state_values[non_final_mask] = target_net(non_final_next_states).max(1).values
     else:
@@ -209,7 +208,7 @@ def optimize_model():
         state_action_values = policy_net(state_batch)
         with torch.no_grad():
             next_state_values[non_final_mask] = target_net(non_final_next_states)
-        print(state_action_values.shape, torch.mean(torch.std(state_action_values, dim=1)).item())
+        # print(state_action_values.shape, torch.mean(torch.std(state_action_values, dim=1)).item())
 
     # Compute V(s_{t+1}) for all next states.
     # Expected values of actions for non_final_next_states are computed based
@@ -247,7 +246,7 @@ for i_episode in range(num_episodes):
     environment.reset()
     state, info = hunter.perception.reset()
     if not use_DDPG:
-        action_frequency = np.zeros(n_actions, dtype=float)
+        action_frequency = torch.zeros(n_actions, dtype=torch.float32)
         for t in count():
             # if i_episode % 10 == 0:
             state = hunter.view().clone().flatten(0).unsqueeze(0)
@@ -259,9 +258,11 @@ for i_episode in range(num_episodes):
             if not use_cam:
                 action_frequency[action.item()] += 1
             else:
-                action_frequency += action.reshape(-1)
+                action_frequency = action_frequency + action.reshape(-1)
+                continuous_action = F.softmax(continuous_action)
+                print(continuous_action, action)
 
-            observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(continuous_action)
+            observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(continuous_action.flatten())
 
             reward = torch.tensor([reward], device=device)
             done = terminated or truncated or done

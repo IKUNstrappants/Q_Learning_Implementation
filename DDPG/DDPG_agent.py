@@ -166,7 +166,7 @@ class DDPG(object):
             self.s_t = s_t1
 
     def random_action(self):
-        action = np.random.uniform(-1.,1.,(1, self.nb_actions)) * np.array([15, 7])
+        action = np.random.uniform(-1.,1.,(1, self.nb_actions)) * np.array([10, 5])
         self.a_t = to_tensor(action).to(device=device, dtype=torch.float32)
         #print(f"random choose {self.a_t.size()}\n")
         return self.a_t
@@ -181,7 +181,7 @@ class DDPG(object):
         if decay_epsilon:
             self.epsilon -= self.depsilon
         
-        self.a_t = to_tensor(action).to(device=device, dtype=torch.float32)#.reshape(-1)
+        self.a_t = to_tensor(action).to(device=device, dtype=torch.float32) #.reshape(-1)
         # print(f"actor choose {self.a_t.size()}\n")
         return self.a_t
 
