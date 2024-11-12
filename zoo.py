@@ -16,8 +16,8 @@ x = torch.rand(256, 2)
 
 class animal():
     def __init__(self, field, AI=IdleAI, id=0, ray=None,
-                 location=torch.zeros(2),
-                 forward=torch.tensor([1.,0.], dtype=torch.double),
+                 location=torch.zeros(2, device=device, dtype=torch.double),
+                 forward=torch.tensor([1.,0.], dtype=torch.double, device=device),
                  possess=False,
                  action_space=25):
 
@@ -96,7 +96,6 @@ class animal():
         return self.view_cache
 
     def walk(self, movement=None, action=None):
-        # print("begin walk")
         if not self.possessed:
             size = self.field.size
             move = movement[0] * 5.
@@ -109,10 +108,9 @@ class animal():
     #new add
     def continuous_walk(self, action):
         size = self.field.size
-        
         if not self.possessed:
-            move = action[0]
-            turn = action[1]
+            move = action[0].item()
+            turn = action[1].item()
             self.forward = rotateVector(self.forward, turn)
             self.location = (self.location + self.forward * move + size) % (size*2) - size
         else:
@@ -133,6 +131,7 @@ class hunter(animal):
         self.size = 1.
         self.type = 1
         self._reset_upon_death = False
+        # print(self.location, self.forward)
 
     def walk(self, movement=None, action=None):
         super().walk(movement, action)
@@ -141,7 +140,9 @@ class hunter(animal):
         size = self.field.size
         self.turn = 0
         self.move = 0
-        location, forward = torch.rand(2, dtype=torch.double)*size*2 - size, rotateVector(torch.tensor([1., 0]), random.random() * 360)
+        location, forward = (torch.rand(2, dtype=torch.double, device=device)*size*2 - size,
+                             rotateVector(torch.tensor([1., 0], device=device), random.random() * 360))
+        print(location, forward)
         self.location = location
         self.forward = forward
         self.score = 0
@@ -168,7 +169,7 @@ class omega_predator(animal):
 
     def reset(self):
         size = self.field.size
-        self.location = torch.rand(2, dtype=torch.double)*size*2 - size
+        self.location = torch.rand(2, dtype=torch.double, device=device)*size*2 - size
 
 class prey(animal):
     def __init__(self, field, AI=PreyAI, id=0, action_space=25):
@@ -185,7 +186,8 @@ class prey(animal):
         size = self.field.size
         self.turn = 0
         self.move = 0
-        location, forward = torch.rand(2, dtype=torch.double)*size*2 - size, rotateVector(torch.tensor([1., 0]), random.random() * 360)
+        location, forward = (torch.rand(2, dtype=torch.double, device=device)*size*2 - size,
+                             rotateVector(torch.tensor([1., 0], device=device), random.random() * 360))
         self.location = location
         self.forward = forward
         self.score = 0

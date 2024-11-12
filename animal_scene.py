@@ -25,7 +25,9 @@ class grassland():
     def _update_possessed_entities(self):
         for entity in self._get_all_entities():
             if entity.possessed:
+                # print(entity.location)
                 entity.walk()
+                # print(entity.location)
 
     def reset(self):
         for hunterID in self.hunters.keys():
@@ -36,8 +38,8 @@ class grassland():
             self.OmegaPredators[OmegaPredatorID].reset()
 
     def _render_entity(self, entity, canvas, pix_square_size):
-        screen_position = pix_square_size * (entity.location.numpy() + self.size) / 2
         screen_coord = lambda x: pix_square_size * (x + self.size) / 2
+        list_from_tensor = lambda x: x.cpu().numpy()
         color_code = {
             0: np.array([0, 0, 0]),     # barrier
             1: np.array([255, 0, 0]),   # predator
@@ -45,7 +47,8 @@ class grassland():
             4: np.array([255, 255, 0]),   # omega_predator
         }
         # color = color_code[entity.type * 10 + (1 if entity.alive else 0)]
-        pygame.draw.circle(surface=canvas, color=color_code[entity.type], center=screen_coord(entity.location.numpy()), radius=7, width=0 if entity.alive else 4)
+        # print(screen_coord(list_from_tensor(entity.location)), list_from_tensor(entity.location), entity.location)
+        pygame.draw.circle(surface=canvas, color=color_code[entity.type], center=screen_coord(list_from_tensor(entity.location)), radius=7, width=0 if entity.alive else 4)
         if entity.view_cache is not None:
             for i in range(len(entity.ray[0])):
                 angle  = entity.ray[0][i]
@@ -58,16 +61,16 @@ class grassland():
                 pygame.draw.line(
                     canvas,
                     color_code[entity.type] * 0.5,
-                    screen_coord(entity.location.numpy()),
-                    screen_coord((entity.location + direction * length).numpy()),
+                    screen_coord(list_from_tensor(entity.location)),
+                    screen_coord(list_from_tensor(entity.location + direction * length)),
                     width=3,
                 )
                 if type != 0:
                     pygame.draw.line(
                         canvas,
                         ray_color,
-                        screen_coord(entity.location.numpy()),
-                        screen_coord((entity.location + direction * distance.item()).numpy()),
+                        screen_coord(list_from_tensor(entity.location)),
+                        screen_coord(list_from_tensor(entity.location + direction * distance.item())),
                         width=3,
                     )
 

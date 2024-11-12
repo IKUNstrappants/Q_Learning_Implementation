@@ -73,6 +73,7 @@ class AnimalEnv(gym.Env):
         return observation, reward, terminated, False, info
     
     def continuous_step(self,action):
+        action = action.flatten()
         self.animal.continuous_walk(action)
 
         distance = 100.

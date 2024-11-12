@@ -2,7 +2,7 @@ import torch
 import math
 
 def rotateVector(vector, angle):
-    phi = torch.tensor(angle * math.pi / 180, dtype=torch.double)
+    phi = torch.tensor(angle * math.pi / 180, dtype=torch.double, device=vector.device)
     s = torch.sin(phi)
     c = torch.cos(phi)
     rot = torch.stack([torch.stack([c, -s]),
