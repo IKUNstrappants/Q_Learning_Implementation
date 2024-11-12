@@ -21,8 +21,8 @@ from DDPG.DDPG_agent import DDPG
 # TAU is the update rate of the target network
 # LR is the learning rate of the ``AdamW`` optimizer
 
-use_DDPG = False
-use_cam = True
+use_DDPG = True
+use_cam = False
 use_som = False # implement som or not
 
 BATCH_SIZE = 128
@@ -56,7 +56,8 @@ Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 cam = CAM(weight_dim=2,learning_rate=0.2)
 som = SOM(weight_dim=2,learning_rate=0.2,lamda=1.0,epsilon=1,decay_factor=0.995,margin=1.0)
-agent = DDPG(nb_states=20, nb_actions= 2,hidden1=400, hidden2=300, init_w=0.003, learning_rate=0.0001, noise_theta=0.15 ,noise_mu=0.0, noise_sigma=0.3, batch_size=128,tau=0.001, discount=0.99, epsilon=50000)
+agent = DDPG(nb_states=20, nb_actions= 2,hidden1=400, hidden2=300, init_w=0.003, learning_rate=1e-4,
+             noise_theta=0.15 ,noise_mu=0.0, noise_sigma=0.3, batch_size=128,tau=0.001, discount=0.99, epsilon=50000)
 
 class ReplayMemory(object):
 
@@ -318,12 +319,13 @@ for i_episode in range(num_episodes):
             done = False
             if t >= max_iter: done=True
             # print("state:", state.shape)
-            if t <= 20:
+            if t <= 60:
                 action = agent.random_action()
             else:
                 action = agent.select_action(state)
-            print("DDPG action:",action)
-            observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(action * 15)
+            # print("DDPG action:",action)
+            action = action * torch.tensor([8., 10.], device=device) + torch.tensor([5., 0.], device=device)
+            observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(action)
             
             reward = torch.tensor([reward], device=device)
             done = terminated or truncated or done
@@ -333,12 +335,12 @@ for i_episode in range(num_episodes):
             else:
                 next_state = torch.tensor(observation, dtype=torch.float32, device=device).unsqueeze(0)
 
-            agent.observe(reward,next_state)
-
+            # agent.observe(reward,next_state)
+            agent.observe2(reward, next_state, done)
             # Perform one step of the optimization (on the policy network)
             # print(t)
-            if t > 20:
-                agent.update_policy()
+            if t > 60:
+                agent.update_policy2()
             
 
             if done:
