@@ -131,7 +131,6 @@ class hunter(animal):
         self.size = 1.
         self.type = 1
         self._reset_upon_death = False
-        # print(self.location, self.forward)
 
     def walk(self, movement=None, action=None):
         super().walk(movement, action)
@@ -142,7 +141,6 @@ class hunter(animal):
         self.move = 0
         location, forward = (torch.rand(2, dtype=torch.double, device=device)*size*2 - size,
                              rotateVector(torch.tensor([1., 0], device=device), random.random() * 360))
-        print(location, forward)
         self.location = location
         self.forward = forward
         self.score = 0

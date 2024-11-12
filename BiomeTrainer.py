@@ -154,7 +154,7 @@ def plot_durations(show_result=False, action_frequency=np.ones(25, dtype=float))
     '''
 
 def plot_durations2(show_result=False):
-    fig = plt.figure(1, figsize=(12, 5))
+    fig = plt.figure(1, figsize=(8, 4))
     fig.clf()
 
     score = torch.tensor(score_cache, dtype=torch.float)
@@ -172,14 +172,6 @@ def plot_durations2(show_result=False):
         plt.plot(means.numpy())
 
     plt.pause(0.1)  # pause a bit so that plots are updated
-    '''
-    if is_ipython:
-        if not show_result:
-            display.display(plt.gcf())
-            display.clear_output(wait=True)
-        else:
-            display.display(plt.gcf())
-    '''
     
 def optimize_model():
     if len(memory) < BATCH_SIZE:
@@ -329,8 +321,8 @@ for i_episode in range(num_episodes):
                 action = agent.random_action()
             else:
                 action = agent.select_action(state)
-            # print("action:",action.shape)
-            observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(action)
+            print("DDPG action:",action)
+            observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(action * 15)
             
             reward = torch.tensor([reward], device=device)
             done = terminated or truncated or done
