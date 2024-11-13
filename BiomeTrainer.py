@@ -11,7 +11,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import pygame
 from collections import namedtuple, deque
-from DDPG.DDPG_agent import DDPG
+from DDPG.DDPG_agent import *
 
 # BATCH_SIZE is the number of transitions sampled from the replay buffer
 # GAMMA is the discount factor as mentioned in the previous section
@@ -21,10 +21,10 @@ from DDPG.DDPG_agent import DDPG
 # TAU is the update rate of the target network
 # LR is the learning rate of the ``AdamW`` optimizer
 
-use_DDPG = True
+use_DDPG = False
 use_cam = False
-use_som = False # implement som or not
-
+use_som = True # implement som or not
+use_adjust_memory = True
 BATCH_SIZE = 128
 GAMMA = 0.99
 EPS_START = 0.9
@@ -57,7 +57,7 @@ Transition = namedtuple('Transition',
 cam = CAM(weight_dim=2,learning_rate=0.2)
 som = SOM(weight_dim=2,learning_rate=0.2,lamda=1.0,epsilon=1,decay_factor=0.995,margin=1.0)
 agent = DDPG(nb_states=20, nb_actions= 2,hidden1=400, hidden2=300, init_w=0.003, learning_rate=0.0001, 
-             noise_theta=0.15 ,noise_mu=0.0, noise_sigma=0.3, batch_size=128,tau=0.001, discount=0.999, epsilon=50000)
+             noise_theta=0.15 ,noise_mu=0.0, noise_sigma=0.5, batch_size=128,tau=0.001, discount=0.99, epsilon=50000)
 
 class ReplayMemory(object):
 
@@ -75,6 +75,7 @@ class ReplayMemory(object):
         return len(self.memory)
 
 memory = ReplayMemory(10000)
+memory_som_adjust = SequentialMemory(limit=6000000, window_length=1)
 
 # set up matplotlib
 plt.ion()
@@ -166,62 +167,81 @@ def plot_durations2(show_result=False):
     plt.plot(score.numpy())
     plt.xlabel('Episode')
     plt.ylabel('reward')
-    # Take 50 episode averages and plot them too
-    if len(score) >= 50:
-        means = score.unfold(0, 50, 1).mean(1).view(-1)
-        means = torch.cat((torch.zeros(49), means))
-        plt.plot(means.numpy())
+    
+    if len(score) >= 20:
+        means = score.unfold(0, 20, 1).mean(1).view(-1)
+        # means = torch.cat((torch.zeros(19), means))
+        plt.plot(np.arange(10, 10+means.shape[0]), means.numpy())
+    if len(score) >= 80:
+        means = score.unfold(0, 80, 1).mean(1).view(-1)
+        # means = torch.cat((torch.zeros(49), means))
+        plt.plot(np.arange(40, 40+means.shape[0]), means.numpy())
 
     plt.pause(0.1)  # pause a bit so that plots are updated
     
 def optimize_model():
-    if len(memory) < BATCH_SIZE:
-        return
-    transitions = memory.sample(BATCH_SIZE)
-    # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
-    # detailed explanation). This converts batch-array of Transitions
-    # to Transition of batch-arrays.
-    batch = Transition(*zip(*transitions))
-    #print("batch:", batch)
-    # Compute a mask of non-final states and concatenate the batch elements
-    # (a final state would've been the one after which simulation ended)
-    non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
-                                          batch.next_state)), device=device, dtype=torch.bool)
-    # print("non_final_mask:", non_final_mask)
-    non_final_next_states = torch.cat([s for s in batch.next_state
-                                                if s is not None])
-    state_batch = torch.cat(batch.state)
-    # print(batch.action)
-    if not use_cam:
-        action_batch = torch.cat(batch.action)
-    reward_batch = torch.cat(batch.reward)
+    if not use_adjust_memory:
+        if len(memory) < BATCH_SIZE:
+            return
+        transitions = memory.sample(BATCH_SIZE)
+        # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
+        # detailed explanation). This converts batch-array of Transitions
+        # to Transition of batch-arrays.
+        batch = Transition(*zip(*transitions))
+        #print("batch:", batch)
+        # Compute a mask of non-final states and concatenate the batch elements
+        # (a final state would've been the one after which simulation ended)
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
+                                            batch.next_state)), device=device, dtype=torch.bool)
+        # print("non_final_mask:", non_final_mask)
+        non_final_next_states = torch.cat([s for s in batch.next_state
+                                                    if s is not None])
+        state_batch = torch.cat(batch.state)
+        # print(batch.action)
+        if not use_cam:
+            action_batch = torch.cat(batch.action)
+        reward_batch = torch.cat(batch.reward)
+    
     # print(state_batch, action_batch, reward_batch)
     # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
     # columns of actions taken. These are the actions which would've been taken
     # for each batch state according to policy_net
-    if not use_cam:
-        next_state_values = torch.zeros(BATCH_SIZE, device=device)
-        state_action_values = policy_net(state_batch).gather(1, action_batch)
-        # print(state_action_values.shape)
-        with torch.no_grad():
-            next_state_values[non_final_mask] = target_net(non_final_next_states).max(1).values
+        if not use_cam:
+            next_state_values = torch.zeros(BATCH_SIZE, device=device)
+            state_action_values = policy_net(state_batch).gather(1, action_batch)
+            # print(state_action_values.shape)
+            with torch.no_grad():
+                next_state_values[non_final_mask] = target_net(non_final_next_states).max(1).values
+        else:
+            next_state_values = torch.zeros((BATCH_SIZE, n_actions), device=device)
+            state_action_values = policy_net(state_batch)
+            with torch.no_grad():
+                next_state_values[non_final_mask] = target_net(non_final_next_states)
+            print(state_action_values.shape, torch.mean(torch.std(state_action_values, dim=1)).item())
+
+    
+        # Compute V(s_{t+1}) for all next states.
+        # Expected values of actions for non_final_next_states are computed based
+        # on the "older" target_net; selecting their best reward with max(1).values
+        # This is merged based on the mask, such that we'll have either the expected
+        # state value or 0 in case the state was final.
+
+        # print(state_action_values, next_state_values)
+        # Compute the expected Q values
+        expected_state_action_values = (next_state_values * GAMMA) + reward_batch
+        # print("grad:", expected_state_action_values.grad)
+        
     else:
-        next_state_values = torch.zeros((BATCH_SIZE, n_actions), device=device)
-        state_action_values = policy_net(state_batch)
-        with torch.no_grad():
-            next_state_values[non_final_mask] = target_net(non_final_next_states)
-        print(state_action_values.shape, torch.mean(torch.std(state_action_values, dim=1)).item())
+        # Sample batch
+        state_batch, action_batch, reward_batch, \
+        next_state_batch, terminal_batch = memory_som_adjust.sample_and_split(BATCH_SIZE)
 
-    # Compute V(s_{t+1}) for all next states.
-    # Expected values of actions for non_final_next_states are computed based
-    # on the "older" target_net; selecting their best reward with max(1).values
-    # This is merged based on the mask, such that we'll have either the expected
-    # state value or 0 in case the state was final.
+        # Prepare for the target q batch
+        state_action_values = policy_net(to_tensor(state_batch)).gather(1, to_tensor(action_batch))
+        next_q_values = target_net(to_tensor(next_state_batch)).max(1).values
+        
+        expected_state_action_values  = to_tensor(reward_batch) + GAMMA * to_tensor(terminal_batch.astype(np.float32)) * next_q_values
 
-    # print(state_action_values, next_state_values)
-    # Compute the expected Q values
-    expected_state_action_values = (next_state_values * GAMMA) + reward_batch
-    # print("grad:", expected_state_action_values.grad)
 
     # Compute Huber loss
     criterion = nn.SmoothL1Loss()
@@ -283,13 +303,17 @@ for i_episode in range(num_episodes):
                         som.update_weights(continuous_action, t)
 
             # Store the transition in memory
-            memory.push(state, action, next_state, reward)
+            if use_adjust_memory:
+                memory_som_adjust.append(state, action, reward, done)
+            else:
+                memory.push(state, action, next_state, reward)
 
             # Move to the next state
             state = next_state
 
             # Perform one step of the optimization (on the policy network)
-            optimize_model()
+            if not use_adjust_memory or t > 10:
+                optimize_model()
 
             # Soft update of the target network's weights
             # θ′ ← τ θ + (1 −τ )θ′
