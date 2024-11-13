@@ -57,7 +57,7 @@ Transition = namedtuple('Transition',
 cam = CAM(weight_dim=2,learning_rate=0.2)
 som = SOM(weight_dim=2,learning_rate=0.2,lamda=1.0,epsilon=1,decay_factor=0.995,margin=1.0)
 agent = DDPG(nb_states=20, nb_actions= 2,hidden1=400, hidden2=300, init_w=0.003, learning_rate=1e-4,
-             noise_theta=0.15 ,noise_mu=0.0, noise_sigma=0.3, batch_size=128,tau=0.001, discount=0.99, epsilon=50000)
+             noise_theta=0.15 ,noise_mu=0.0, noise_sigma=0.1, batch_size=128,tau=0.001, discount=0.99, epsilon=50000)
 
 class ReplayMemory(object):
 
@@ -167,10 +167,14 @@ def plot_durations2(show_result=False):
     plt.xlabel('Episode')
     plt.ylabel('reward')
     # Take 50 episode averages and plot them too
-    if len(score) >= 50:
+    if len(score) >= 20:
         means = score.unfold(0, 20, 1).mean(1).view(-1)
         # means = torch.cat((torch.zeros(19), means))
         plt.plot(np.arange(10, 10 + means.shape[0]), means.numpy())
+    if len(score) >= 80:
+        means = score.unfold(0, 80, 1).mean(1).view(-1)
+        # means = torch.cat((torch.zeros(19), means))
+        plt.plot(np.arange(40, 40 + means.shape[0]), means.numpy())
 
     plt.pause(0.1)  # pause a bit so that plots are updated
     
