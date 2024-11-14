@@ -41,17 +41,17 @@ class CAM():
         self.weight_dim = weight_dim
         self.lr = learning_rate
 
-        grid_x = np.array([-20, 30], dtype=float).repeat(2)
-        grid_y = np.array([[-30., 30.]], dtype=float).T.repeat(2, axis=1).T.flatten()
-        self.grid = np.concatenate((grid_x[:, np.newaxis], grid_y[:, np.newaxis]), axis=1)
+        grid_x = torch.tensor([-20, 30], dtype=torch.float32).repeat(2)
+        grid_y = torch.tensor([[-30., 30.]], dtype=torch.float32).T.repeat(2, 1).T.flatten()
+        self.grid = torch.cat((grid_x[:, None], grid_y[:, None]), dim=1)
 
     def propose_action(self, weight):
-        return np.sum(self.grid * weight.T, axis=0)
+        return torch.sum(self.grid * weight.T, dim=0)
 
     def random_action(self):
-        random_weights = np.random.uniform(0, 1, self.grid.shape[0])
+        random_weights = torch.rand(self.grid.shape[0])
         weights = random_weights / random_weights.sum()
-        return np.average(self.grid, weights=weights, axis=0), weights.reshape(1, -1)
+        return torch.sum(self.grid * weights[:, None], dim=0), weights.reshape(1, -1)
 
 if __name__ == "__main__":
     som = SOM()

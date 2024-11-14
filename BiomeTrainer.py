@@ -25,6 +25,7 @@ use_DDPG = False
 use_cam = False
 use_som = True # implement som or not
 use_adjust_memory = True
+
 BATCH_SIZE = 128
 GAMMA = 0.99
 EPS_START = 0.9
@@ -32,7 +33,7 @@ EPS_END = 0.05
 EPS_DECAY = 1000
 TAU = 0.005
 LR = 1e-4
-environment = grassland(num_hunter=1, num_prey=100, num_OmegaPredator=5, size=100, hunter_n_action=4 if use_cam else 25)
+environment = grassland(num_hunter=1, num_prey=100, num_OmegaPredator=15, size=100, hunter_n_action=4 if use_cam else 25)
 hunter = environment.hunters[0]
 # Get number of actions from gym action space
 n_actions = hunter.perception.action_space.n
@@ -56,7 +57,8 @@ Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 cam = CAM(weight_dim=2,learning_rate=0.2)
 som = SOM(weight_dim=2,learning_rate=0.2,lamda=1.0,epsilon=1,decay_factor=0.995,margin=1.0)
-agent = DDPG(nb_states=20, nb_actions= 2,hidden1=400, hidden2=300, init_w=0.003, learning_rate=0.0001, 
+
+agent = DDPG(nb_states=20, nb_actions= 2,hidden1=400, hidden2=300, init_w=0.003, learning_rate=1e-4, 
              noise_theta=0.15 ,noise_mu=0.0, noise_sigma=0.5, batch_size=128,tau=0.001, discount=0.99, epsilon=50000)
 
 class ReplayMemory(object):
@@ -109,7 +111,7 @@ def select_action(state):
 episode_durations = []
 score_cache = []
 
-def plot_durations(show_result=False, action_frequency=np.ones(25, dtype=float)):
+def plot_durations(show_result=False, action_frequency=None):
     fig = plt.figure(1, figsize=(8, 8))
     fig.clf()
     gs = gridspec.GridSpec(2, 2, width_ratios=[1, 1], height_ratios=[1, 1])
@@ -167,15 +169,15 @@ def plot_durations2(show_result=False):
     plt.plot(score.numpy())
     plt.xlabel('Episode')
     plt.ylabel('reward')
-    
+    # Take 50 episode averages and plot them too
     if len(score) >= 20:
         means = score.unfold(0, 20, 1).mean(1).view(-1)
         # means = torch.cat((torch.zeros(19), means))
-        plt.plot(np.arange(10, 10+means.shape[0]), means.numpy())
+        plt.plot(np.arange(10, 10 + means.shape[0]), means.numpy())
     if len(score) >= 80:
         means = score.unfold(0, 80, 1).mean(1).view(-1)
-        # means = torch.cat((torch.zeros(49), means))
-        plt.plot(np.arange(40, 40+means.shape[0]), means.numpy())
+        # means = torch.cat((torch.zeros(19), means))
+        plt.plot(np.arange(40, 40 + means.shape[0]), means.numpy())
 
     plt.pause(0.1)  # pause a bit so that plots are updated
     
@@ -268,7 +270,7 @@ for i_episode in range(num_episodes):
     environment.reset()
     state, info = hunter.perception.reset()
     if not use_DDPG:
-        action_frequency = np.zeros(n_actions, dtype=float)
+        action_frequency = torch.zeros(n_actions, dtype=torch.float32)
         for t in count():
             # if i_episode % 10 == 0:
             state = hunter.view().clone().flatten(0).unsqueeze(0)
@@ -280,9 +282,11 @@ for i_episode in range(num_episodes):
             if not use_cam:
                 action_frequency[action.item()] += 1
             else:
-                action_frequency += action.reshape(-1)
+                action_frequency = action_frequency + action.reshape(-1)
+                continuous_action = F.softmax(continuous_action)
+                print(continuous_action, action)
 
-            observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(continuous_action)
+            observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(continuous_action.flatten())
 
             reward = torch.tensor([reward], device=device)
             done = terminated or truncated or done
@@ -326,7 +330,7 @@ for i_episode in range(num_episodes):
             if done:
                 episode_durations.append(t + 1)
                 score_cache.append(hunter.score)
-                plot_durations(action_frequency=action_frequency / np.sum(action_frequency))
+                plot_durations(action_frequency=action_frequency / torch.sum(action_frequency))
                 break
         
     else:
@@ -346,8 +350,9 @@ for i_episode in range(num_episodes):
                 action = agent.random_action()
             else:
                 action = agent.select_action(state)
-            print("DDPG action:",action)
-            observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(action * 15)
+            # print("DDPG action:",action)
+            action = action * torch.tensor([8., 10.], device=device) + torch.tensor([5., 0.], device=device)
+            observation, reward, terminated, truncated, _ = hunter.perception.continuous_step(action)
             
             reward = torch.tensor([reward], device=device)
             done = terminated or truncated or done

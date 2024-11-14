@@ -2,7 +2,6 @@ from __future__ import absolute_import
 from collections import deque, namedtuple
 import warnings
 import random
-
 import numpy as np
 
 # [reference] https://github.com/matthiasplappert/keras-rl/blob/master/rl/memory.py
@@ -173,6 +172,7 @@ class SequentialMemory(Memory):
         terminal1_batch = []
         state1_batch = []
         for e in experiences:
+
             state0_batch.append(e.state0)
             state1_batch.append(e.state1)
             reward_batch.append(e.reward)
@@ -180,6 +180,7 @@ class SequentialMemory(Memory):
             terminal1_batch.append(0. if e.terminal1 else 1.)
 
         # Prepare and validate parameters.
+        # print(state0_batch, type(state0_batch))
         state0_batch = np.array(state0_batch).reshape(batch_size,-1)
         state1_batch = np.array(state1_batch).reshape(batch_size,-1)
         terminal1_batch = np.array(terminal1_batch).reshape(batch_size,-1)

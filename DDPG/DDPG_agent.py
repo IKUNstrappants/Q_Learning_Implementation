@@ -172,26 +172,28 @@ class DDPG(object):
             
     def observe2(self, r_t, s_t1, done):
         if self.is_training:
-            self.memory2.append(self.s_t, self.a_t, r_t, done)
+            self.memory2.append(self.s_t.cpu(), self.a_t.cpu(), r_t.cpu(), done)
             self.s_t = s_t1
             
     def random_action(self):
-        action = np.random.uniform(-1.,1.,(1, self.nb_actions)) * np.array([1, 1])
+        action = np.random.uniform(-1.,1.,(1, self.nb_actions))#  * np.array([3, 1])
         self.a_t = to_tensor(action).to(device=device, dtype=torch.float32)
         #print(f"random choose {self.a_t.size()}\n")
         return self.a_t
 
     def select_action(self, s_t, decay_epsilon=True):
-        action = to_numpy(
+        action = self.actor(s_t).detach()
+        # print(action.shape, self.is_training, self.epsilon, self.random_process.sample().shape)
+        '''to_numpy(
             self.actor(to_tensor(to_numpy(s_t)))
-        )
-        action += self.is_training * max(self.epsilon, 0)* self.random_process.sample()
+        )'''
+        action = action + self.is_training * max(self.epsilon, 0) * torch.from_numpy(self.random_process.sample()).to(device=device, dtype=torch.float32)
         # action = np.clip(action, -1., 1.)
 
         if decay_epsilon:
             self.epsilon -= self.depsilon
-        
-        self.a_t = to_tensor(action).to(device=device, dtype=torch.float32) * torch.tensor([1,1], device=device,dtype=torch.float32)#.reshape(-1)
+
+        self.a_t = action#  * torch.tensor([3,1], device=device,dtype=torch.float32)#.reshape(-1)
         # print(f"actor choose {self.a_t.size()}\n")
         return self.a_t
 
