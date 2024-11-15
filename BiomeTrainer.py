@@ -21,10 +21,10 @@ from DDPG.DDPG_agent import *
 # TAU is the update rate of the target network
 # LR is the learning rate of the ``AdamW`` optimizer
 
-use_DDPG = False
+use_DDPG = True
 use_cam = False
-use_som = True # implement som or not
-use_adjust_memory = True
+use_som = False # implement som or not
+use_adjust_memory = False
 
 BATCH_SIZE = 128
 GAMMA = 0.99
@@ -59,7 +59,7 @@ cam = CAM(weight_dim=2,learning_rate=0.2)
 som = SOM(weight_dim=2,learning_rate=0.2,lamda=1.0,epsilon=1,decay_factor=0.995,margin=1.0)
 
 agent = DDPG(nb_states=20, nb_actions= 2,hidden1=400, hidden2=300, init_w=0.003, learning_rate=1e-4, 
-             noise_theta=0.15 ,noise_mu=0.0, noise_sigma=0.5, batch_size=128,tau=0.001, discount=0.99, epsilon=50000)
+             noise_theta=0.15 ,noise_mu=0.0, noise_sigma=0.3, batch_size=128,tau=0.001, discount=0.995, epsilon=50000)
 
 class ReplayMemory(object):
 
@@ -131,6 +131,10 @@ def plot_durations(show_result=False, action_frequency=None):
         means = score.unfold(0, 20, 1).mean(1).view(-1)
         # means = torch.cat((torch.zeros(19), means))
         ax1.plot(np.arange(10, 10+means.shape[0]), means.numpy())
+        std = means.std().item()
+        max = np.max(means.numpy()) + 0.5 * std
+        ax1.axhline(y=max, color='red', linestyle='--', label="Upper Bound")
+        ax1.text(x=0, y=max, s=f"{max:.2f}", color="red", va="center", ha="right", fontsize=10, backgroundcolor="white")
     if len(score) >= 80:
         means = score.unfold(0, 80, 1).mean(1).view(-1)
         # means = torch.cat((torch.zeros(49), means))
@@ -169,15 +173,22 @@ def plot_durations2(show_result=False):
     plt.plot(score.numpy())
     plt.xlabel('Episode')
     plt.ylabel('reward')
+    max_value = 0
     # Take 50 episode averages and plot them too
     if len(score) >= 20:
         means = score.unfold(0, 20, 1).mean(1).view(-1)
         # means = torch.cat((torch.zeros(19), means))
         plt.plot(np.arange(10, 10 + means.shape[0]), means.numpy())
+        std = means.std().item()
+        max = np.max(means.numpy()) + 0.5 * std
+        plt.axhline(y=max, color='red', linestyle='--', label="Upper Bound")
+        plt.text(x=0, y=max, s=f"{max:.2f}", color="red", va="center", ha="right", fontsize=10, backgroundcolor="white")
+
     if len(score) >= 80:
         means = score.unfold(0, 80, 1).mean(1).view(-1)
         # means = torch.cat((torch.zeros(19), means))
         plt.plot(np.arange(40, 40 + means.shape[0]), means.numpy())
+
 
     plt.pause(0.1)  # pause a bit so that plots are updated
     
@@ -257,10 +268,10 @@ def optimize_model():
     optimizer.step()
 
     
-max_iter = 600
+max_iter = 1000
 
 if torch.cuda.is_available() or torch.backends.mps.is_available():
-    num_episodes = 2000
+    num_episodes = 1000
 else:
     num_episodes = 50
 
@@ -372,7 +383,7 @@ for i_episode in range(num_episodes):
 
             if done:
                 episode_durations.append(t + 1)
-                score_cache.append(hunter.score)
+                score_cache.append(hunter.score )
                 plot_durations2()
                 environment.close()
                 print(f"{i_episode}th episode: {t} iterations, end up with {hunter.score} reward")
