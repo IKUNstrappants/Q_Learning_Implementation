@@ -152,7 +152,9 @@ def plot_durations(show_result=False, action_frequency=None):
         ax3.bar(np.arange(len(action_frequency)), action_frequency)
 
     if show_result:
-        plt.savefig(f"figure/{'DDPG' if args.use_ddpg else 'SOM' if args.use_som else 'DQN'}-lr={args.som_lr}-nEpi={args.num_episodes}.png")
+        method = 'DDPG' if args.use_ddpg else 'SOM' if args.use_som else 'DQN'
+        params = f"lr={args.ddpg_lr if args.use_ddpg else args.som_lr}-nEpi={args.num_episodes}"
+        plt.savefig(f"figure/{method}-{params}.png")
         plt.close('all')
 
     plt.pause(0.1)  # pause a bit so that plots are updated
