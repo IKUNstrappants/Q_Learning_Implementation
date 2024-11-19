@@ -109,37 +109,37 @@ episode_durations = []
 score_cache = []
 
 def plot_durations(show_result=False, action_frequency=None):
-    fig = plt.figure(1, figsize=(8, 8))
-    fig.clf()
-    gs = gridspec.GridSpec(2, 2, width_ratios=[1, 1], height_ratios=[1, 1])
-    ax1 = fig.add_subplot(gs[0, :])
-    ax2 = fig.add_subplot(gs[1, 0])
-    ax3 = fig.add_subplot(gs[1, 1])
-    score = torch.tensor(score_cache, dtype=torch.float)
-    if show_result:
-        ax1.set_title('Result')
-    else:
-        ax1.set_title('Training...')
-    ax1.plot(score.numpy())
-    ax1.set_xlabel('Episode')
-    ax1.set_ylabel('reward')
-    # Take 50 episode averages and plot them too
-    if len(score) >= 20:
-        means = score.unfold(0, 20, 1).mean(1).view(-1)
-        # means = torch.cat((torch.zeros(19), means))
-        ax1.plot(np.arange(10, 10+means.shape[0]), means.numpy())
-
-        std = means.std().item()
-        max = np.max(means.numpy()) # + 0.5 * std
-        ax1.axhline(y=max, color='red', linestyle='--', label="Upper Bound")
-        ax1.text(x=0, y=max, s=f"{max:.2f}", color="red", va="center", ha="right", fontsize=10, backgroundcolor="white")
-
-    if len(score) >= 80:
-        means = score.unfold(0, 80, 1).mean(1).view(-1)
-        # means = torch.cat((torch.zeros(49), means))
-        ax1.plot(np.arange(40, 40+means.shape[0]), means.numpy())
-
     if not args.use_ddpg:
+        fig = plt.figure(1, figsize=(8, 8))
+        fig.clf()
+        gs = gridspec.GridSpec(2, 2, width_ratios=[1, 1], height_ratios=[1, 1])
+        ax1 = fig.add_subplot(gs[0, :])
+        ax2 = fig.add_subplot(gs[1, 0])
+        ax3 = fig.add_subplot(gs[1, 1])
+        score = torch.tensor(score_cache, dtype=torch.float)
+        if show_result:
+            ax1.set_title('Result')
+        else:
+            ax1.set_title('Training...')
+        ax1.plot(score.numpy())
+        ax1.set_xlabel('Episode')
+        ax1.set_ylabel('reward')
+        # Take 50 episode averages and plot them too
+        if len(score) >= 20:
+            means = score.unfold(0, 20, 1).mean(1).view(-1)
+            # means = torch.cat((torch.zeros(19), means))
+            ax1.plot(np.arange(10, 10+means.shape[0]), means.numpy())
+
+            std = means.std().item()
+            max = np.max(means.numpy()) # + 0.5 * std
+            ax1.axhline(y=max, color='red', linestyle='--', label="Upper Bound")
+            ax1.text(x=0, y=max, s=f"{max:.2f}", color="red", va="center", ha="right", fontsize=10, backgroundcolor="white")
+
+        if len(score) >= 80:
+            means = score.unfold(0, 80, 1).mean(1).view(-1)
+            # means = torch.cat((torch.zeros(49), means))
+            ax1.plot(np.arange(40, 40+means.shape[0]), means.numpy())
+
         scatter = som.grid.cpu() if args.use_som else cam.grid.cpu()
         ax2.set_title('Self Organizing Map')
         ax2.set_xlabel('forward')
@@ -150,6 +150,37 @@ def plot_durations(show_result=False, action_frequency=None):
         ax3.set_xlabel('action')
         ax3.set_ylabel('frequency')
         ax3.bar(np.arange(len(action_frequency)), action_frequency)
+
+    else:
+        fig = plt.figure(1, figsize=(8, 4))
+        fig.clf()
+
+        score = torch.tensor(score_cache, dtype=torch.float)
+        if show_result:
+            plt.title('Result')
+        else:
+            plt.title('Training...')
+        plt.plot(score.numpy())
+        plt.xlabel('Episode')
+        plt.ylabel('reward')
+        max_value = 0
+        # Take 50 episode averages and plot them too
+        if len(score) >= 20:
+            means = score.unfold(0, 20, 1).mean(1).view(-1)
+            # means = torch.cat((torch.zeros(19), means))
+            plt.plot(np.arange(10, 10 + means.shape[0]), means.numpy())
+
+            std = means.std().item()
+            max = np.max(means.numpy())  # + 0.5 * std
+            plt.axhline(y=max, color='red', linestyle='--', label="Upper Bound")
+            plt.text(x=0, y=max, s=f"{max:.2f}", color="red", va="center", ha="right", fontsize=10,
+                     backgroundcolor="white")
+        if len(score) >= 80:
+            means = score.unfold(0, 80, 1).mean(1).view(-1)
+            # means = torch.cat((torch.zeros(19), means))
+            plt.plot(np.arange(40, 40 + means.shape[0]), means.numpy())
+
+        plt.pause(0.1)  # pause a bit so that plots are updated
 
     if show_result:
         method = 'DDPG' if args.use_ddpg else 'SOM' if args.use_som else 'DQN'
