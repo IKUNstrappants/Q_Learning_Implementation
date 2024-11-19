@@ -150,7 +150,7 @@ def plot_durations(show_result=False, action_frequency=None):
     ax3.bar(np.arange(len(action_frequency)), action_frequency)
 
     if show_result:
-        plt.savefig(f"{'SOM' if args.use_som else 'DQN'}-lr={args.som_lr}-nEpi={args.num_episodes}.png")
+        plt.savefig(f"figure/{'SOM' if args.use_som else 'DQN'}-lr={args.som_lr}-nEpi={args.num_episodes}.png")
         plt.close('all')
 
     plt.pause(0.1)  # pause a bit so that plots are updated
@@ -192,7 +192,7 @@ def plot_durations2(show_result=False):
         plt.plot(np.arange(40, 40 + means.shape[0]), means.numpy())
 
     if show_result:
-        plt.savefig(f"DDPG-lr={args.ddpg_lr}-nEpi={args.num_episodes}.png")
+        plt.savefig(f"figure/DDPG-lr={args.ddpg_lr}-nEpi={args.num_episodes}.png")
         plt.close('all')
 
     plt.pause(0.1)  # pause a bit so that plots are updated
