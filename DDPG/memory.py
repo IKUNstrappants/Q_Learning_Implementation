@@ -121,7 +121,7 @@ class SequentialMemory(Memory):
         # Create experiences
         experiences = []
         for idx in batch_idxs:
-            terminal0 = self.terminals[idx - 2] if idx >= 2 else False # 避免因连续性中断（即回合结束后从新回合的初始状态开始）对训练带来负面影响
+            terminal0 = self.terminals[idx - 2] if idx >= 2 else False # 如果我们在 Replay Buffer 中采样了一个转移 (s_{t-1}, a_{t-1}, r_{t-1}, s_t)，我们需要保证 s_{t-1} 是前一个状态 s_{t-2} 的有效后续状态，即t-2不能terminal
             while terminal0:
                 # Skip this transition because the environment was reset here. Select a new, random
                 # transition and use this instead. This may cause the batch to contain the same
@@ -133,7 +133,8 @@ class SequentialMemory(Memory):
             # This code is slightly complicated by the fact that subsequent observations might be
             # from different episodes. We ensure that an experience never spans multiple episodes.
             # This is probably not that important in practice but it seems cleaner.
-            state0 = [self.observations[idx - 1]]
+            
+            state0 = [self.observations[idx - 1]] # previous state
             for offset in range(0, self.window_length - 1):
                 current_idx = idx - 2 - offset
                 current_terminal = self.terminals[current_idx - 1] if current_idx - 1 > 0 else False
@@ -141,9 +142,10 @@ class SequentialMemory(Memory):
                     # The previously handled observation was terminal, don't add the current one.
                     # Otherwise we would leak into a different episode.
                     break
-                state0.insert(0, self.observations[current_idx])
+                state0.insert(0, self.observations[current_idx]) # 加入之前的几帧状态
             while len(state0) < self.window_length:
                 state0.insert(0, zeroed_observation(state0[0]))
+                
             action = self.actions[idx - 1]
             reward = self.rewards[idx - 1]
             terminal1 = self.terminals[idx - 1]
@@ -152,7 +154,7 @@ class SequentialMemory(Memory):
             # to the right. Again, we need to be careful to not include an observation from the next
             # episode if the last state is terminal.
             state1 = [np.copy(x) for x in state0[1:]]
-            state1.append(self.observations[idx])
+            state1.append(self.observations[idx]) # current state
 
             assert len(state0) == self.window_length
             assert len(state1) == len(state0)
