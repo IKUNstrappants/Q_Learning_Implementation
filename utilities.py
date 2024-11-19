@@ -11,3 +11,10 @@ def rotateVector(vector, angle):
 
 def vectorDistance(x1, x2):
      return torch.cdist(x1[None, :], x2[None, :], p=2.0)
+
+def device():
+    return torch.device(
+        # "cuda" if torch.cuda.is_available() else
+        # "mps" if torch.backends.mps.is_available() else
+        "cpu"
+    )

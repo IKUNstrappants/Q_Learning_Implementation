@@ -13,33 +13,29 @@ import pygame
 from collections import namedtuple, deque
 from DDPG.DDPG_agent import DDPG
 import argparse
-'''
 parser = argparse.ArgumentParser(description='PyTorch Cross-Modality Training')
-parser.add_argument('use_DDPG', action='store_false')
-parser.add_argument('use_cam', action='store_false')
-parser.add_argument('use_som', action='store_false')
-parser.add_argument('BATCH_SIZE', default=128, help="BATCH_SIZE is the number of transitions sampled from the replay buffer")
-parser.add_argument('GAMMA', default=0.99, help="GAMMA is the discount factor as mentioned in the previous section")
-parser.add_argument('EPS_START', default=0.9, help="EPS_START is the starting value of epsilon")
-parser.add_argument('EPS_END', default=0.05, help="EPS_END is the final value of epsilon")
-parser.add_argument('EPS_DECAY', default=1000, help="EPS_DECAY controls the rate of exponential decay of epsilon, higher means a slower decay")
-parser.add_argument('TAU', default=0.005, help="TAU is the update rate of the target network")
-parser.add_argument('LR', default=1e-4, help="LR is the learning rate of the ``AdamW`` optimizer")
+parser.add_argument('--use_ddpg', action='store_true')
+parser.add_argument('--use_cam', action='store_true')
+parser.add_argument('--use_som', action='store_true')
+parser.add_argument('--BATCH_SIZE', default=128, type=int, help="BATCH_SIZE is the number of transitions sampled from the replay buffer")
+parser.add_argument('--GAMMA', default=0.99, type=float, help="GAMMA is the discount factor as mentioned in the previous section")
+parser.add_argument('--EPS_START', default=0.9, type=float, help="EPS_START is the starting value of epsilon")
+parser.add_argument('--EPS_END', default=0.05, type=float, help="EPS_END is the final value of epsilon")
+parser.add_argument('--EPS_DECAY', default=1000, type=int, help="EPS_DECAY controls the rate of exponential decay of epsilon, higher means a slower decay")
+parser.add_argument('--TAU', default=0.005, type=float, help="TAU is the update rate of the target network")
+parser.add_argument('--LR', default=1e-4, type=float, help="LR is the learning rate of the ``AdamW`` optimizer")
+parser.add_argument('--render_mode', default="human", help="LR is the learning rate of the ``AdamW`` optimizer")
+parser.add_argument('--som_lr', default=0.01, type=float, help="LR is the learning rate of the ``AdamW`` optimizer")
+parser.add_argument('--ddpg_lr', default=1e-4, type=float, help="LR is the learning rate of the ``AdamW`` optimizer")
+parser.add_argument('--max_iter', default=1000, type=int, help="LR is the learning rate of the ``AdamW`` optimizer")
+parser.add_argument('--num_episodes', default=1000, type=int, help="LR is the learning rate of the ``AdamW`` optimizer")
 
 args = parser.parse_args()
-'''
-use_DDPG = True
-use_cam = False
-use_som = False # implement som or not
 
-BATCH_SIZE = 128
-GAMMA = 0.99
-EPS_START = 0.9
-EPS_END = 0.05
-EPS_DECAY = 1000
-TAU = 0.005
-LR = 1e-4
-environment = grassland(num_hunter=1, num_prey=100, num_OmegaPredator=15, size=100, hunter_n_action=4 if use_cam else 25, render_mode="human")
+print("==========================================================")
+print(f"a {'DDPG' if args.use_ddpg else 'SOM' if args.use_som else 'DQN'} task")
+print("==========================================================")
+environment = grassland(num_hunter=1, num_prey=100, num_OmegaPredator=15, size=100, hunter_n_action=4 if args.use_cam else 25, render_mode=args.render_mode)
 hunter = environment.hunters[0]
 # Get number of actions from gym action space
 n_actions = hunter.perception.action_space.n
@@ -50,15 +46,15 @@ policy_net = PredatorAI(n_actions).to(device())
 target_net = PredatorAI(n_actions).to(device())
 target_net.load_state_dict(policy_net.state_dict())
 
-optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
+optimizer = optim.AdamW(policy_net.parameters(), lr=args.LR, amsgrad=True)
 
 steps_done = 0
 
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 cam = CAM(weight_dim=2,learning_rate=0.2)
-som = SOM(weight_dim=2,learning_rate=0.01,lamda=1.0,epsilon=1,decay_factor=0.99,margin=1.0)
-agent = DDPG(nb_states=20, nb_actions= 2,hidden1=512, hidden2=256, init_w=0.003, learning_rate=3e-5,
+som = SOM(weight_dim=2,learning_rate=args.som_lr,lamda=1.0,epsilon=1,decay_factor=0.99,margin=1.0)
+agent = DDPG(nb_states=20, nb_actions= 2,hidden1=512, hidden2=256, init_w=0.003, learning_rate=args.ddpg_lr,
              noise_theta=0.15 ,noise_mu=0.0, noise_sigma=0.1, batch_size=128,tau=0.001, discount=0.99, epsilon=50000,
              use_soft_update=True)
 
@@ -86,22 +82,22 @@ plt.ion()
 def select_action(state):
     global steps_done
     sample = random.random()
-    eps_threshold = EPS_END + (EPS_START - EPS_END) * \
-        math.exp(-1. * steps_done / EPS_DECAY)
+    eps_threshold = args.EPS_END + (args.EPS_START - args.EPS_END) * \
+        math.exp(-1. * steps_done / args.EPS_DECAY)
     steps_done += 1
     if sample > eps_threshold:
         with torch.no_grad():
             # t.max(1) will return the largest column value of each row.
             # second column on max result is index of where max element was
             # found, so we pick action with the larger expected reward.
-            if not use_cam:
+            if not args.use_cam:
                 action = policy_net(state).max(1).indices.view(1, 1)
                 return som.perturbed_action(action.item()), action
             else:
                 weight = policy_net(state).numpy(force=True)
                 return cam.propose_action(weight), weight
     else:
-        if not use_cam:
+        if not args.use_cam:
             action = torch.tensor([[hunter.perception.action_space.sample()]], device=device(), dtype=torch.long)
             return som.perturbed_action(action.item()), action
         else:
@@ -142,7 +138,7 @@ def plot_durations(show_result=False, action_frequency=None):
         # means = torch.cat((torch.zeros(49), means))
         ax1.plot(np.arange(40, 40+means.shape[0]), means.numpy())
 
-    scatter = som.grid.cpu() if use_som else cam.grid.cpu()
+    scatter = som.grid.cpu() if args.use_som else cam.grid.cpu()
     ax2.set_title('Self Organizing Map')
     ax2.set_xlabel('forward')
     ax2.set_ylabel('rotation')
@@ -152,8 +148,10 @@ def plot_durations(show_result=False, action_frequency=None):
     ax3.set_xlabel('action')
     ax3.set_ylabel('frequency')
     ax3.bar(np.arange(len(action_frequency)), action_frequency)
+
     if show_result:
-        plt.savefig(f"{'DDPG' if use_DDPG else 'SOM' if use_som else 'DQN'}")
+        plt.savefig(f"{'SOM' if args.use_som else 'DQN'}-lr={args.som_lr}-nEpi={args.num_episodes}.png")
+        plt.close('all')
 
     plt.pause(0.1)  # pause a bit so that plots are updated
     '''
@@ -194,14 +192,15 @@ def plot_durations2(show_result=False):
         plt.plot(np.arange(40, 40 + means.shape[0]), means.numpy())
 
     if show_result:
-        plt.savefig(f"{'DDPG' if use_DDPG else 'SOM' if use_som else 'DQN'}")
+        plt.savefig(f"DDPG-lr={args.ddpg_lr}-nEpi={args.num_episodes}.png")
+        plt.close('all')
 
     plt.pause(0.1)  # pause a bit so that plots are updated
     
 def optimize_model():
-    if len(memory) < BATCH_SIZE:
+    if len(memory) < args.BATCH_SIZE:
         return
-    transitions = memory.sample(BATCH_SIZE)
+    transitions = memory.sample(args.BATCH_SIZE)
     # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
     # detailed explanation). This converts batch-array of Transitions
     # to Transition of batch-arrays.
@@ -216,20 +215,20 @@ def optimize_model():
                                                 if s is not None])
     state_batch = torch.cat(batch.state)
     # print(batch.action)
-    if not use_cam:
+    if not args.use_cam:
         action_batch = torch.cat(batch.action)
     reward_batch = torch.cat(batch.reward)
     # print(state_batch, action_batch, reward_batch)
     # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
     # columns of actions taken. These are the actions which would've been taken
     # for each batch state according to policy_net
-    if not use_cam:
-        next_state_values = torch.zeros(BATCH_SIZE, device=device())
+    if not args.use_cam:
+        next_state_values = torch.zeros(args.BATCH_SIZE, device=device())
         state_action_values = policy_net(state_batch).gather(1, action_batch)
         with torch.no_grad():
             next_state_values[non_final_mask] = target_net(non_final_next_states).max(1).values
     else:
-        next_state_values = torch.zeros((BATCH_SIZE, n_actions), device=device())
+        next_state_values = torch.zeros((args.BATCH_SIZE, n_actions), device=device())
         state_action_values = policy_net(state_batch)
         with torch.no_grad():
             next_state_values[non_final_mask] = target_net(non_final_next_states)
@@ -243,7 +242,7 @@ def optimize_model():
 
     # print(state_action_values, next_state_values)
     # Compute the expected Q values
-    expected_state_action_values = (next_state_values * GAMMA) + reward_batch
+    expected_state_action_values = (next_state_values * args.GAMMA) + reward_batch
     # print("grad:", expected_state_action_values.grad)
 
     # Compute Huber loss
@@ -257,20 +256,14 @@ def optimize_model():
     torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
     optimizer.step()
 
-    
-max_iter = 1000
 
-if torch.cuda.is_available() or torch.backends.mps.is_available():
-    num_episodes = 1000
-else:
-    num_episodes = 50
 
 pygame.init()
 
-for i_episode in range(num_episodes):
+for i_episode in range(args.num_episodes):
     environment.reset()
     state, info = hunter.perception.reset()
-    if not use_DDPG:
+    if not args.use_ddpg:
         action_frequency = torch.zeros(n_actions, dtype=torch.float32)
         for t in count():
             # if i_episode % 10 == 0:
@@ -278,9 +271,9 @@ for i_episode in range(num_episodes):
             environment._update_possessed_entities()
             environment._render_frame()
             done = False
-            if t >= max_iter: done = True
+            if t >= args.max_iter: done = True
             continuous_action, action = select_action(state)
-            if not use_cam:
+            if not args.use_cam:
                 action_frequency[action.item()] += 1
             else:
                 action_frequency = action_frequency + action.reshape(-1)
@@ -292,17 +285,17 @@ for i_episode in range(num_episodes):
             reward = torch.tensor([reward], device=device())
             done = terminated or truncated or done
 
-            if use_som:
+            if args.use_som:
                 current_state_action_value = policy_net(state).gather(1, action)
 
             if terminated:
                 next_state = None
             else:
                 next_state = observation.clone().detach().unsqueeze(0)
-                if use_som:
+                if args.use_som:
                     next_state_value = target_net(next_state).max(1).values
                     # Compute the expected Q values
-                    expected_state_action_value = (next_state_value * GAMMA) + reward
+                    expected_state_action_value = (next_state_value * args.GAMMA) + reward
 
                     if expected_state_action_value > current_state_action_value:
                         som.update_weights(continuous_action, t)
@@ -321,7 +314,7 @@ for i_episode in range(num_episodes):
             target_net_state_dict = target_net.state_dict()
             policy_net_state_dict = policy_net.state_dict()
             for key in policy_net_state_dict:
-                target_net_state_dict[key] = policy_net_state_dict[key] * TAU + target_net_state_dict[key] * (1 - TAU)
+                target_net_state_dict[key] = policy_net_state_dict[key] * args.TAU + target_net_state_dict[key] * (1 - args.TAU)
             target_net.load_state_dict(target_net_state_dict)
 
             if done:
@@ -329,7 +322,7 @@ for i_episode in range(num_episodes):
                 score_cache.append(hunter.score)
                 print(f"{i_episode}th episode: {t} iterations, end up with {hunter.score} reward")
                 if (i_episode + 1) % 1 == 0:
-                    plot_durations(action_frequency=action_frequency / torch.sum(action_frequency))
+                    plot_durations(i_episode==args.num_episodes-1, action_frequency=action_frequency / torch.sum(action_frequency))
                 break
         
     else:
@@ -343,7 +336,7 @@ for i_episode in range(num_episodes):
             environment._render_frame()
             # print("3", hunter.location)
             done = False
-            if t >= max_iter: done=True
+            if t >= args.max_iter: done=True
             # print("state:", state.shape)
             if t <= 60:
                 action = agent.random_action()
@@ -377,7 +370,7 @@ for i_episode in range(num_episodes):
             if done:
                 episode_durations.append(t + 1)
                 score_cache.append(hunter.score)
-                plot_durations2()
+                plot_durations2(i_episode==args.num_episodes-1)
                 environment.close()
                 print(f"{i_episode}th episode: {t} iterations, end up with {hunter.score} reward")
                 break

@@ -9,15 +9,13 @@ from gym_examples_main.gym_examples.envs import AnimalEnv, BridgeEnv
 from shapely.geometry import Point, LineString
 from shapely.ops import nearest_points
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 x = torch.rand(256, 2)
 
 class animal():
     def __init__(self, field, AI=IdleAI, id=0, ray=None,
-                 location=torch.zeros(2, device=device, dtype=torch.double),
-                 forward=torch.tensor([1.,0.], dtype=torch.double, device=device),
+                 location=torch.zeros(2, device=device(), dtype=torch.double),
+                 forward=torch.tensor([1.,0.], dtype=torch.double, device=device()),
                  possess=False,
                  action_space=25):
 
@@ -77,7 +75,7 @@ class animal():
                 type = target.type
                 distance = dist
         distance = 1.0 / (distance + 1)
-        return torch.tensor([[type, distance]]).to(device)
+        return torch.tensor([[type, distance]]).to(device())
 
     def view(self):
         targets = self.field._get_all_entities()
@@ -139,8 +137,8 @@ class hunter(animal):
         size = self.field.size
         self.turn = 0
         self.move = 0
-        location, forward = (torch.rand(2, dtype=torch.double, device=device)*size*2 - size,
-                             rotateVector(torch.tensor([1., 0], device=device), random.random() * 360))
+        location, forward = (torch.rand(2, dtype=torch.double, device=device())*size*2 - size,
+                             rotateVector(torch.tensor([1., 0], device=device()), random.random() * 360))
         self.location = location
         self.forward = forward
         self.score = 0
@@ -167,7 +165,7 @@ class omega_predator(animal):
 
     def reset(self):
         size = self.field.size
-        self.location = torch.rand(2, dtype=torch.double, device=device)*size*2 - size
+        self.location = torch.rand(2, dtype=torch.double, device=device())*size*2 - size
 
 class prey(animal):
     def __init__(self, field, AI=PreyAI, id=0, action_space=25):
@@ -184,8 +182,8 @@ class prey(animal):
         size = self.field.size
         self.turn = 0
         self.move = 0
-        location, forward = (torch.rand(2, dtype=torch.double, device=device)*size*2 - size,
-                             rotateVector(torch.tensor([1., 0], device=device), random.random() * 360))
+        location, forward = (torch.rand(2, dtype=torch.double, device=device())*size*2 - size,
+                             rotateVector(torch.tensor([1., 0], device=device()), random.random() * 360))
         self.location = location
         self.forward = forward
         self.score = 0
@@ -244,7 +242,7 @@ class walker():
         # Calculate the distance from the ray start to the nearest point on the polygon
         distance = min(ray_start.distance(nearest_point), length)
 
-        return torch.tensor([1.0 / distance]).to(device)
+        return torch.tensor([1.0 / distance]).to(device())
 
     def view(self):
         view_cache = []

@@ -5,22 +5,23 @@ from torch.optim import Adam
 from DDPG.DDPG_model import (Actor, Critic)
 from collections import namedtuple, deque
 import random
+from utilities import *
 from .random_noise import OrnsteinUhlenbeckProcess
 from .memory import SequentialMemory
 
-device = torch.device(
-    "cuda" if torch.cuda.is_available() else
+"""device = torch.device(
+    # "cuda" if torch.cuda.is_available() else
     #"mps" if torch.backends.mps.is_available() else
     "cpu"
-)
-USE_CUDA = torch.cuda.is_available()
+)"""
+USE_CUDA = True if device()=="cuda" else False
 
 # from ipdb import set_trace as debug
 def to_numpy(var):
     return var.cpu().data.numpy() if USE_CUDA else var.data.numpy()
 
 def to_tensor(ndarray):
-    return torch.from_numpy(ndarray).to(device)
+    return torch.from_numpy(ndarray).to(device())
 
 def soft_update(target, source, tau):
     for target_param, param in zip(target.parameters(), source.parameters()):
@@ -53,7 +54,9 @@ class ReplayMemory(object):
 criterion = nn.MSELoss()
 
 class DDPG(object):
-    def __init__(self, nb_states, nb_actions, hidden1, hidden2, init_w, learning_rate, noise_theta, noise_mu, noise_sigma, batch_size, tau, discount, epsilon):
+    def __init__(self, nb_states, nb_actions, hidden1, hidden2, init_w,
+                 learning_rate, noise_theta, noise_mu, noise_sigma, batch_size, tau, discount, epsilon,
+                 use_soft_update=True):
         
         self.nb_states = nb_states
         self.nb_actions= nb_actions
@@ -80,6 +83,7 @@ class DDPG(object):
         self.tau = tau
         self.discount = discount
         self.depsilon = 1.0 / epsilon
+        self.use_soft_update = use_soft_update
 
         # 
         self.epsilon = 1.0
@@ -103,7 +107,7 @@ class DDPG(object):
         # Compute a mask of non-final states and concatenate the batch elements
         # (a final state would've been the one after which simulation ended)
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
-                                            batch.next_state)), device=device, dtype=torch.bool)
+                                            batch.next_state)), device=device(), dtype=torch.bool)
         non_final_next_state_batch = torch.cat([s for s in batch.next_state
                                                     if s is not None])
         state_batch = torch.cat(batch.state).to(dtype=torch.float32)
@@ -113,7 +117,7 @@ class DDPG(object):
         # print(action_batch.size())
         reward_batch = torch.cat(batch.reward).to(dtype=torch.float32)
         
-        next_q_values = torch.zeros(self.batch_size, device=device)
+        next_q_values = torch.zeros(self.batch_size, device=device())
         
 
         # Prepare for the target q batch
@@ -150,8 +154,12 @@ class DDPG(object):
         self.actor_optim.step()
 
         # Target update
-        soft_update(self.actor_target, self.actor, self.tau)
-        soft_update(self.critic_target, self.critic, self.tau)
+        if self.use_soft_update:
+            soft_update(self.actor_target, self.actor, self.tau)
+            soft_update(self.critic_target, self.critic, self.tau)
+        else:
+            hard_update(self.actor_target , self.actor )
+            hard_update(self.critic_target, self.critic)
 
     def eval(self):
         self.actor.eval()
@@ -177,7 +185,7 @@ class DDPG(object):
             
     def random_action(self):
         action = np.random.uniform(-1.,1.,(1, self.nb_actions))#  * np.array([3, 1])
-        self.a_t = to_tensor(action).to(device=device, dtype=torch.float32)
+        self.a_t = to_tensor(action).to(device=device(), dtype=torch.float32)
         #print(f"random choose {self.a_t.size()}\n")
         return self.a_t
 
@@ -187,7 +195,7 @@ class DDPG(object):
         '''to_numpy(
             self.actor(to_tensor(to_numpy(s_t)))
         )'''
-        action = action + self.is_training * max(self.epsilon, 0) * torch.from_numpy(self.random_process.sample()).to(device=device, dtype=torch.float32)
+        action = action + self.is_training * max(self.epsilon, 0) * torch.from_numpy(self.random_process.sample()).to(device=device(), dtype=torch.float32)
         # action = np.clip(action, -1., 1.)
 
         if decay_epsilon:
@@ -242,5 +250,9 @@ class DDPG(object):
         self.actor_optim.step()
 
         # Target update
-        soft_update(self.actor_target, self.actor, self.tau)
-        soft_update(self.critic_target, self.critic, self.tau)
+        if self.use_soft_update:
+            soft_update(self.actor_target, self.actor, self.tau)
+            soft_update(self.critic_target, self.critic, self.tau)
+        else:
+            hard_update(self.actor_target , self.actor )
+            hard_update(self.critic_target, self.critic)

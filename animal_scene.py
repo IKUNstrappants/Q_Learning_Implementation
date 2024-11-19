@@ -3,13 +3,13 @@ import pygame
 import numpy as np
 from utilities import *
 class grassland():
-    def __init__(self, num_hunter=1, num_prey=10, num_OmegaPredator=5, size=100, hunter_n_action=25, prey_n_action=1):
+    def __init__(self, num_hunter=1, num_prey=10, num_OmegaPredator=5, size=100, hunter_n_action=25, prey_n_action=1, render_mode="human"):
         self.hunters = {}
         self.preys = {}
         self.OmegaPredators = {}
         self.size=size
         self.window = None
-        self.render_mode = "human"
+        self.render_mode = render_mode
         self.clock = None
         self.window_size = 1024  # The size of the PyGame window
         for i in range(num_hunter):

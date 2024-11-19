@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from utilities import *
 
 def fanin_init(size, fanin=None):
     fanin = fanin or size[0]
@@ -19,6 +20,8 @@ class Actor(nn.Module):
         self.bn1 = nn.LayerNorm(hidden1)
         self.bn2 = nn.LayerNorm(hidden2)
         self.init_weights(init_w)
+        # self.scale = nn.Parameter(torch.tensor([ 8., 10.], device=device()))
+        # self.bias  = nn.Parameter(torch.tensor([3.], device=device()))
     
     def init_weights(self, init_w):
         self.fc1.weight.data = fanin_init(self.fc1.weight.data.size())
@@ -34,6 +37,8 @@ class Actor(nn.Module):
         out = self.relu(out)
         out = self.fc3(out)
         out = self.tanh(out)
+        # out = out * self.scale # + self.bias
+        # out[0] = out[0] + self.bias
         return out
 
 class Critic(nn.Module):
