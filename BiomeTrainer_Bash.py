@@ -34,6 +34,7 @@ args = parser.parse_args()
 
 print("==========================================================")
 print(f"a {'DDPG' if args.use_ddpg else 'SOM' if args.use_som else 'DQN'} task")
+print(f"params: {str(vars(args))}")
 print("==========================================================")
 environment = grassland(num_hunter=1, num_prey=100, num_OmegaPredator=15, size=100, hunter_n_action=4 if args.use_cam else 25, render_mode=args.render_mode)
 hunter = environment.hunters[0]
