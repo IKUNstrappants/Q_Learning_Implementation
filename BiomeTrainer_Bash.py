@@ -138,19 +138,20 @@ def plot_durations(show_result=False, action_frequency=None):
         # means = torch.cat((torch.zeros(49), means))
         ax1.plot(np.arange(40, 40+means.shape[0]), means.numpy())
 
-    scatter = som.grid.cpu() if args.use_som else cam.grid.cpu()
-    ax2.set_title('Self Organizing Map')
-    ax2.set_xlabel('forward')
-    ax2.set_ylabel('rotation')
-    ax2.scatter(scatter[:, 0], scatter[:, 1], c=np.arange(scatter.shape[0]), s=action_frequency * 100, cmap='viridis')
+    if not args.use_ddpg:
+        scatter = som.grid.cpu() if args.use_som else cam.grid.cpu()
+        ax2.set_title('Self Organizing Map')
+        ax2.set_xlabel('forward')
+        ax2.set_ylabel('rotation')
+        ax2.scatter(scatter[:, 0], scatter[:, 1], c=np.arange(scatter.shape[0]), s=action_frequency * 100, cmap='viridis')
 
-    ax3.set_title('action frequency map')
-    ax3.set_xlabel('action')
-    ax3.set_ylabel('frequency')
-    ax3.bar(np.arange(len(action_frequency)), action_frequency)
+        ax3.set_title('action frequency map')
+        ax3.set_xlabel('action')
+        ax3.set_ylabel('frequency')
+        ax3.bar(np.arange(len(action_frequency)), action_frequency)
 
     if show_result:
-        plt.savefig(f"figure/{'SOM' if args.use_som else 'DQN'}-lr={args.som_lr}-nEpi={args.num_episodes}.png")
+        plt.savefig(f"figure/{'DDPG' if args.use_ddpg else 'SOM' if args.use_som else 'DQN'}-lr={args.som_lr}-nEpi={args.num_episodes}.png")
         plt.close('all')
 
     plt.pause(0.1)  # pause a bit so that plots are updated
@@ -162,40 +163,6 @@ def plot_durations(show_result=False, action_frequency=None):
         else:
             display.display(plt.gcf())
     '''
-
-def plot_durations2(show_result=False):
-    fig = plt.figure(1, figsize=(8, 4))
-    fig.clf()
-
-    score = torch.tensor(score_cache, dtype=torch.float)
-    if show_result:
-        plt.title('Result')
-    else:
-        plt.title('Training...')
-    plt.plot(score.numpy())
-    plt.xlabel('Episode')
-    plt.ylabel('reward')
-    # Take 50 episode averages and plot them too
-    if len(score) >= 20:
-        means = score.unfold(0, 20, 1).mean(1).view(-1)
-        # means = torch.cat((torch.zeros(19), means))
-        plt.plot(np.arange(10, 10 + means.shape[0]), means.numpy())
-
-        std = means.std().item()
-        max = np.max(means.numpy()) #  + 0.5 * std
-        plt.axhline(y=max, color='red', linestyle='--', label="Upper Bound")
-        plt.text(x=0, y=max, s=f"{max:.2f}", color="red", va="center", ha="right", fontsize=10, backgroundcolor="white")
-
-    if len(score) >= 80:
-        means = score.unfold(0, 80, 1).mean(1).view(-1)
-        # means = torch.cat((torch.zeros(19), means))
-        plt.plot(np.arange(40, 40 + means.shape[0]), means.numpy())
-
-    if show_result:
-        plt.savefig(f"figure/DDPG-lr={args.ddpg_lr}-nEpi={args.num_episodes}.png")
-        plt.close('all')
-
-    plt.pause(0.1)  # pause a bit so that plots are updated
     
 def optimize_model():
     if len(memory) < args.BATCH_SIZE:
@@ -370,7 +337,7 @@ for i_episode in range(args.num_episodes):
             if done:
                 episode_durations.append(t + 1)
                 score_cache.append(hunter.score)
-                plot_durations2(i_episode==args.num_episodes-1)
+                plot_durations(i_episode==args.num_episodes-1)
                 environment.close()
                 print(f"{i_episode}th episode: {t} iterations, end up with {hunter.score} reward")
                 break
