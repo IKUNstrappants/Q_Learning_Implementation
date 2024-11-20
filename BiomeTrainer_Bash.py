@@ -188,54 +188,15 @@ def plot_durations(show_result=False, action_frequency=None):
 
     if show_result:
         method = 'DDPG' if args.use_ddpg else 'SOM' if args.use_som else 'DQN'
-        params = f"lr={args.ddpg_lr if args.use_ddpg else args.som_lr}-epsilon={None if args.use_ddpg else args.som_epsilon}-nEpi={args.num_episodes}"
+        if args.use_som:
+            params = f"lr={args.som_lr}-epsilon={args.som_epsilon}-nEpi={args.num_episodes}"
+        else:
+            params = f"lr={args.ddpg_lr}-nEpi={args.num_episodes}-sigma={args.noise_sigma}-theta={args.noise_theta}-GAMMA={args.GAMMA}-TAU={args.TAU}"
         plt.savefig(f"figure/{method}[{params}].png")
         plt.close('all')
 
     plt.pause(0.1)  # pause a bit so that plots are updated
-    '''
-    if is_ipython:
-        if not show_result:
-            display.display(plt.gcf())
-            display.clear_output(wait=True)
-        else:
-            display.display(plt.gcf())
-    '''
 
-def plot_durations2(show_result=False):
-    fig = plt.figure(1, figsize=(8, 4))
-    fig.clf()
-
-    score = torch.tensor(score_cache, dtype=torch.float)
-    if show_result:
-        plt.title('Result')
-    else:
-        plt.title('Training...')
-    plt.plot(score.numpy())
-    plt.xlabel('Episode')
-    plt.ylabel('reward')
-    # Take 50 episode averages and plot them too
-    if len(score) >= 20:
-        means = score.unfold(0, 20, 1).mean(1).view(-1)
-        # means = torch.cat((torch.zeros(19), means))
-        plt.plot(np.arange(10, 10 + means.shape[0]), means.numpy())
-
-        std = means.std().item()
-        max = np.max(means.numpy()) #  + 0.5 * std
-        plt.axhline(y=max, color='red', linestyle='--', label="Upper Bound")
-        plt.text(x=0, y=max, s=f"{max:.2f}", color="red", va="center", ha="right", fontsize=10, backgroundcolor="white")
-
-    if len(score) >= 80:
-        means = score.unfold(0, 80, 1).mean(1).view(-1)
-        # means = torch.cat((torch.zeros(19), means))
-        plt.plot(np.arange(40, 40 + means.shape[0]), means.numpy())
-
-    if show_result:
-        plt.savefig(f"figure/DDPG-lr={args.ddpg_lr}-nEpi={args.num_episodes}-sigma{args.noise_sigma}-theta{args.noise_theta}-GAMMA{args.GAMMA}-TAU{args.TAU}.png")
-        plt.close('all')
-
-    plt.pause(0.1)  # pause a bit so that plots are updated
-    
 def optimize_model():
     if len(memory) < args.BATCH_SIZE:
         return
