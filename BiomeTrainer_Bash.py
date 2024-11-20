@@ -186,8 +186,8 @@ def plot_durations(show_result=False, action_frequency=None):
 
     if show_result:
         method = 'DDPG' if args.use_ddpg else 'SOM' if args.use_som else 'DQN'
-        params = f"lr={args.ddpg_lr if args.use_ddpg else args.som_lr}-nEpi={args.num_episodes}"
-        plt.savefig(f"figure/{method}-{params}.png")
+        params = f"lr={args.ddpg_lr if args.use_ddpg else args.som_lr}-epsilon={None if args.use_ddpg else args.som_epsilon}-nEpi={args.num_episodes}"
+        plt.savefig(f"figure/{method}[{params}].png")
         plt.close('all')
 
     plt.pause(0.1)  # pause a bit so that plots are updated
