@@ -29,6 +29,8 @@ parser.add_argument('--som_lr', default=0.01, type=float, help="LR is the learni
 parser.add_argument('--ddpg_lr', default=1e-4, type=float, help="LR is the learning rate of the ``AdamW`` optimizer")
 parser.add_argument('--max_iter', default=1000, type=int, help="LR is the learning rate of the ``AdamW`` optimizer")
 parser.add_argument('--num_episodes', default=1000, type=int, help="LR is the learning rate of the ``AdamW`` optimizer")
+parser.add_argument('--noise_sigma', default=0.1, type=float, help="noise_sigma is the std of noise")
+parser.add_argument('--noise_theta', default=0.15, type=float, help="noise_theta is the rate of regression to the mean, higher theta means a quicker regression")
 
 args = parser.parse_args()
 
@@ -55,7 +57,7 @@ Transition = namedtuple('Transition',
 cam = CAM(weight_dim=2,learning_rate=0.2)
 som = SOM(weight_dim=2,learning_rate=args.som_lr,lamda=1.0,epsilon=1,decay_factor=0.99,margin=1.0)
 agent = DDPG(nb_states=20, nb_actions= 2,hidden1=512, hidden2=256, init_w=0.003, learning_rate=args.ddpg_lr,
-             noise_theta=0.15 ,noise_mu=0.0, noise_sigma=0.1, batch_size=128,tau=0.001, discount=0.99, epsilon=50000,
+             noise_theta=args.noise_theta ,noise_mu=0.0, noise_sigma=args.noise_sigma, batch_size=128,tau=args.TAU, discount=args.GAMMA, epsilon=50000,
              use_soft_update=True)
 
 class ReplayMemory(object):
@@ -192,7 +194,7 @@ def plot_durations2(show_result=False):
         plt.plot(np.arange(40, 40 + means.shape[0]), means.numpy())
 
     if show_result:
-        plt.savefig(f"figure/DDPG-lr={args.ddpg_lr}-nEpi={args.num_episodes}.png")
+        plt.savefig(f"figure/DDPG-lr={args.ddpg_lr}-nEpi={args.num_episodes}-sigma{args.noise_sigma}-theta{args.noise_theta}-GAMMA{args.GAMMA}-TAU{args.TAU}.png")
         plt.close('all')
 
     plt.pause(0.1)  # pause a bit so that plots are updated
