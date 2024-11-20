@@ -26,6 +26,8 @@ parser.add_argument('--TAU', default=0.005, type=float, help="TAU is the update 
 parser.add_argument('--LR', default=1e-4, type=float, help="LR is the learning rate of the ``AdamW`` optimizer")
 parser.add_argument('--render_mode', default="human", help="LR is the learning rate of the ``AdamW`` optimizer")
 parser.add_argument('--som_lr', default=0.01, type=float, help="LR is the learning rate of the ``AdamW`` optimizer")
+parser.add_argument('--som_lambda', default=1.0, type=float, help="LR is the learning rate of the ``AdamW`` optimizer")
+parser.add_argument('--som_epsilon', default=1.0, type=float, help="LR is the learning rate of the ``AdamW`` optimizer")
 parser.add_argument('--ddpg_lr', default=1e-4, type=float, help="LR is the learning rate of the ``AdamW`` optimizer")
 parser.add_argument('--max_iter', default=1000, type=int, help="LR is the learning rate of the ``AdamW`` optimizer")
 parser.add_argument('--num_episodes', default=1000, type=int, help="LR is the learning rate of the ``AdamW`` optimizer")
@@ -36,6 +38,7 @@ args = parser.parse_args()
 
 print("==========================================================")
 print(f"a {'DDPG' if args.use_ddpg else 'SOM' if args.use_som else 'DQN'} task")
+print(f"params: {str(vars(args))}")
 print("==========================================================")
 environment = grassland(num_hunter=1, num_prey=100, num_OmegaPredator=15, size=100, hunter_n_action=4 if args.use_cam else 25, render_mode=args.render_mode)
 hunter = environment.hunters[0]
@@ -55,7 +58,7 @@ steps_done = 0
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 cam = CAM(weight_dim=2,learning_rate=0.2)
-som = SOM(weight_dim=2,learning_rate=args.som_lr,lamda=1.0,epsilon=1,decay_factor=0.99,margin=1.0)
+som = SOM(weight_dim=2,learning_rate=args.som_lr,lamda=args.som_lambda,epsilon=args.som_epsilon,decay_factor=0.99,margin=0.5)
 agent = DDPG(nb_states=20, nb_actions= 2,hidden1=512, hidden2=256, init_w=0.003, learning_rate=args.ddpg_lr,
              noise_theta=args.noise_theta ,noise_mu=0.0, noise_sigma=args.noise_sigma, batch_size=128,tau=args.TAU, discount=args.GAMMA, epsilon=50000,
              use_soft_update=True)
@@ -110,49 +113,83 @@ episode_durations = []
 score_cache = []
 
 def plot_durations(show_result=False, action_frequency=None):
-    fig = plt.figure(1, figsize=(8, 8))
-    fig.clf()
-    gs = gridspec.GridSpec(2, 2, width_ratios=[1, 1], height_ratios=[1, 1])
-    ax1 = fig.add_subplot(gs[0, :])
-    ax2 = fig.add_subplot(gs[1, 0])
-    ax3 = fig.add_subplot(gs[1, 1])
-    score = torch.tensor(score_cache, dtype=torch.float)
-    if show_result:
-        ax1.set_title('Result')
+    if not args.use_ddpg:
+        fig = plt.figure(1, figsize=(8, 8))
+        fig.clf()
+        gs = gridspec.GridSpec(2, 2, width_ratios=[1, 1], height_ratios=[1, 1])
+        ax1 = fig.add_subplot(gs[0, :])
+        ax2 = fig.add_subplot(gs[1, 0])
+        ax3 = fig.add_subplot(gs[1, 1])
+        score = torch.tensor(score_cache, dtype=torch.float)
+        if show_result:
+            ax1.set_title('Result')
+        else:
+            ax1.set_title('Training...')
+        ax1.plot(score.numpy())
+        ax1.set_xlabel('Episode')
+        ax1.set_ylabel('reward')
+        # Take 50 episode averages and plot them too
+        if len(score) >= 20:
+            means = score.unfold(0, 20, 1).mean(1).view(-1)
+            # means = torch.cat((torch.zeros(19), means))
+            ax1.plot(np.arange(10, 10+means.shape[0]), means.numpy())
+
+            std = means.std().item()
+            max = np.max(means.numpy()) # + 0.5 * std
+            ax1.axhline(y=max, color='red', linestyle='--', label="Upper Bound")
+            ax1.text(x=0, y=max, s=f"{max:.2f}", color="red", va="center", ha="right", fontsize=10, backgroundcolor="white")
+
+        if len(score) >= 80:
+            means = score.unfold(0, 80, 1).mean(1).view(-1)
+            # means = torch.cat((torch.zeros(49), means))
+            ax1.plot(np.arange(40, 40+means.shape[0]), means.numpy())
+
+        scatter = som.grid.cpu() if args.use_som else cam.grid.cpu()
+        ax2.set_title('Self Organizing Map')
+        ax2.set_xlabel('forward')
+        ax2.set_ylabel('rotation')
+        ax2.scatter(scatter[:, 0], scatter[:, 1], c=np.arange(scatter.shape[0]), s=action_frequency * 100, cmap='viridis')
+
+        ax3.set_title('action frequency map')
+        ax3.set_xlabel('action')
+        ax3.set_ylabel('frequency')
+        ax3.bar(np.arange(len(action_frequency)), action_frequency)
+
     else:
-        ax1.set_title('Training...')
-    ax1.plot(score.numpy())
-    ax1.set_xlabel('Episode')
-    ax1.set_ylabel('reward')
-    # Take 50 episode averages and plot them too
-    if len(score) >= 20:
-        means = score.unfold(0, 20, 1).mean(1).view(-1)
-        # means = torch.cat((torch.zeros(19), means))
-        ax1.plot(np.arange(10, 10+means.shape[0]), means.numpy())
+        fig = plt.figure(1, figsize=(8, 4))
+        fig.clf()
 
-        std = means.std().item()
-        max = np.max(means.numpy()) # + 0.5 * std
-        ax1.axhline(y=max, color='red', linestyle='--', label="Upper Bound")
-        ax1.text(x=0, y=max, s=f"{max:.2f}", color="red", va="center", ha="right", fontsize=10, backgroundcolor="white")
+        score = torch.tensor(score_cache, dtype=torch.float)
+        if show_result:
+            plt.title('Result')
+        else:
+            plt.title('Training...')
+        plt.plot(score.numpy())
+        plt.xlabel('Episode')
+        plt.ylabel('reward')
+        max_value = 0
+        # Take 50 episode averages and plot them too
+        if len(score) >= 20:
+            means = score.unfold(0, 20, 1).mean(1).view(-1)
+            # means = torch.cat((torch.zeros(19), means))
+            plt.plot(np.arange(10, 10 + means.shape[0]), means.numpy())
 
-    if len(score) >= 80:
-        means = score.unfold(0, 80, 1).mean(1).view(-1)
-        # means = torch.cat((torch.zeros(49), means))
-        ax1.plot(np.arange(40, 40+means.shape[0]), means.numpy())
+            std = means.std().item()
+            max = np.max(means.numpy())  # + 0.5 * std
+            plt.axhline(y=max, color='red', linestyle='--', label="Upper Bound")
+            plt.text(x=0, y=max, s=f"{max:.2f}", color="red", va="center", ha="right", fontsize=10,
+                     backgroundcolor="white")
+        if len(score) >= 80:
+            means = score.unfold(0, 80, 1).mean(1).view(-1)
+            # means = torch.cat((torch.zeros(19), means))
+            plt.plot(np.arange(40, 40 + means.shape[0]), means.numpy())
 
-    scatter = som.grid.cpu() if args.use_som else cam.grid.cpu()
-    ax2.set_title('Self Organizing Map')
-    ax2.set_xlabel('forward')
-    ax2.set_ylabel('rotation')
-    ax2.scatter(scatter[:, 0], scatter[:, 1], c=np.arange(scatter.shape[0]), s=action_frequency * 100, cmap='viridis')
-
-    ax3.set_title('action frequency map')
-    ax3.set_xlabel('action')
-    ax3.set_ylabel('frequency')
-    ax3.bar(np.arange(len(action_frequency)), action_frequency)
+        plt.pause(0.1)  # pause a bit so that plots are updated
 
     if show_result:
-        plt.savefig(f"figure/{'SOM' if args.use_som else 'DQN'}-lr={args.som_lr}-nEpi={args.num_episodes}.png")
+        method = 'DDPG' if args.use_ddpg else 'SOM' if args.use_som else 'DQN'
+        params = f"lr={args.ddpg_lr if args.use_ddpg else args.som_lr}-epsilon={None if args.use_ddpg else args.som_epsilon}-nEpi={args.num_episodes}"
+        plt.savefig(f"figure/{method}[{params}].png")
         plt.close('all')
 
     plt.pause(0.1)  # pause a bit so that plots are updated
@@ -372,7 +409,7 @@ for i_episode in range(args.num_episodes):
             if done:
                 episode_durations.append(t + 1)
                 score_cache.append(hunter.score)
-                plot_durations2(i_episode==args.num_episodes-1)
+                plot_durations(i_episode==args.num_episodes-1)
                 environment.close()
                 print(f"{i_episode}th episode: {t} iterations, end up with {hunter.score} reward")
                 break

@@ -2,6 +2,7 @@ import numpy as np
 import random
 import torch
 from utilities import *
+from math import exp
 
 '''device = torch.device(
     #"cuda" if torch.cuda.is_available() else
@@ -37,12 +38,11 @@ class SOM():
             return
         learning_rate = self.lr * (self.decay_factor ** iteration)
         lamda = self.lamda * (self.decay_factor ** iteration)
-        
         for i in range(self.grid.shape[0]):
-            distance_to_bmu = vectorDistance(self.grid[i], action)
+            distance_to_bmu = vectorDistance(self.grid[i], action).item() / 50
             if distance_to_bmu <= self.margin:
                 continue
-            neighborhood_func = torch.exp(- distance_to_bmu**2 / (2 * lamda **2))
+            neighborhood_func = exp(- distance_to_bmu**2 / (2 * lamda **2))
             delta = learning_rate * neighborhood_func * (action - self.grid[i])
             self.grid[i] = self.grid[i] + delta
 
@@ -65,3 +65,4 @@ class CAM():
 
 if __name__ == "__main__":
     som = SOM()
+    som.update_weights(torch.tensor([0, 0], dtype=torch.float32), 1)
