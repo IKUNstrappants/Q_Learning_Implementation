@@ -26,6 +26,8 @@ parser.add_argument('--TAU', default=0.005, type=float, help="TAU is the update 
 parser.add_argument('--LR', default=1e-4, type=float, help="LR is the learning rate of the ``AdamW`` optimizer")
 parser.add_argument('--render_mode', default="human", help="LR is the learning rate of the ``AdamW`` optimizer")
 parser.add_argument('--som_lr', default=0.01, type=float, help="LR is the learning rate of the ``AdamW`` optimizer")
+parser.add_argument('--som_lambda', default=1.0, type=float, help="LR is the learning rate of the ``AdamW`` optimizer")
+parser.add_argument('--som_epsilon', default=1.0, type=float, help="LR is the learning rate of the ``AdamW`` optimizer")
 parser.add_argument('--ddpg_lr', default=1e-4, type=float, help="LR is the learning rate of the ``AdamW`` optimizer")
 parser.add_argument('--max_iter', default=1000, type=int, help="LR is the learning rate of the ``AdamW`` optimizer")
 parser.add_argument('--num_episodes', default=1000, type=int, help="LR is the learning rate of the ``AdamW`` optimizer")
@@ -54,7 +56,7 @@ steps_done = 0
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 cam = CAM(weight_dim=2,learning_rate=0.2)
-som = SOM(weight_dim=2,learning_rate=args.som_lr,lamda=1.0,epsilon=1,decay_factor=0.99,margin=1.0)
+som = SOM(weight_dim=2,learning_rate=args.som_lr,lamda=args.som_lambda,epsilon=args.som_epsilon,decay_factor=0.99,margin=0.5)
 agent = DDPG(nb_states=20, nb_actions= 2,hidden1=512, hidden2=256, init_w=0.003, learning_rate=args.ddpg_lr,
              noise_theta=0.15 ,noise_mu=0.0, noise_sigma=0.1, batch_size=128,tau=0.001, discount=0.99, epsilon=50000,
              use_soft_update=True)
